@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🦆 Mi Olganización</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #faf7f2;
+    --surface: #fff;
+    --accent: #b5795a;
+    --accent-light: #f5e6dd;
+    --accent2: #7a9e7e;
+    --accent2-light: #e5f0e6;
+    --text: #2c2016;
+    --muted: #9c8a7a;
+    --border: #e8ddd4;
+    --done: #7a9e7e;
+    --shadow: 0 2px 16px rgba(44,32,22,0.08);
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0 0 60px;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1.5px solid var(--border);
+    padding: 20px 20px 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 12px rgba(44,32,22,0.06);
+  }
+
+  .header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+  }
+
+  .sync-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 20px;
+    border: 1.5px solid var(--border);
+    background: var(--bg);
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .sync-status:hover { border-color: var(--accent); color: var(--accent); }
+  .sync-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .sync-dot.ok { background: var(--done); }
+  .sync-dot.syncing { background: #f0a500; animation: pulse 1s infinite; }
+  .sync-dot.error { background: #c0392b; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .week-nav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .week-nav button {
+    background: none;
+    border: 1.5px solid var(--border);
+    border-radius: 50%;
+    width: 32px; height: 32px;
+    cursor: pointer;
+    font-size: 1rem;
+    color: var(--muted);
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.18s;
+  }
+  .week-nav button:hover { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+
+  .week-label {
+    font-size: 0.85rem;
+    color: var(--muted);
+    font-weight: 500;
+    min-width: 140px;
+    text-align: center;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: none;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 10px 4px 12px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--muted);
+    border-bottom: 2.5px solid transparent;
+    transition: all 0.18s;
+    white-space: nowrap;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  main { padding: 16px; max-width: 600px; margin: 0 auto; }
+
+  /* ---- WEEK VIEW ---- */
+  .day-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    margin-bottom: 14px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    border: 1.5px solid var(--border);
+    transition: transform 0.15s;
+  }
+
+  .day-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 13px 16px;
+    cursor: pointer;
+    background: var(--surface);
+    user-select: none;
+  }
+  .day-header:hover { background: #fdf9f6; }
+
+  .day-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .day-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+
+  .day-date { font-size: 0.78rem; color: var(--muted); }
+
+  .done-badge {
+    background: var(--accent2-light);
+    color: var(--done);
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    border: 1.5px solid transparent;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .done-badge:not(.active) { background: #f0ebe5; color: var(--muted); }
+  .done-badge.active { border-color: var(--done); }
+
+  .day-body {
+    padding: 0 16px 16px;
+    border-top: 1px solid var(--border);
+    display: none;
+  }
+  .day-body.open { display: block; }
+
+  .day-chevron { color: var(--muted); font-size: 0.8rem; transition: transform 0.2s; }
+  .day-card.open .day-chevron { transform: rotate(180deg); }
+
+  .field-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    margin: 14px 0 7px;
+  }
+
+  .exercise-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+  }
+
+  .exercise-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 9px;
+    border: 1.5px solid var(--border);
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.15s;
+    user-select: none;
+    background: var(--bg);
+  }
+  .exercise-item:hover { border-color: var(--accent); background: var(--accent-light); }
+  .exercise-item.checked { border-color: var(--accent); background: var(--accent-light); color: var(--accent); font-weight: 500; }
+
+  .ex-check {
+    width: 16px; height: 16px;
+    border-radius: 4px;
+    border: 1.5px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem;
+    flex-shrink: 0;
+    background: white;
+    transition: all 0.15s;
+  }
+  .exercise-item.checked .ex-check { background: var(--accent); border-color: var(--accent); color: white; }
+
+  .exercise-full { grid-column: 1 / -1; }
+
+  .km-input-wrap { display: flex; align-items: center; gap: 6px; flex: 1; }
+
+  .km-input {
+    width: 52px;
+    border: none;
+    border-bottom: 1.5px solid var(--border);
+    background: transparent;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    padding: 2px 4px;
+    color: var(--text);
+    outline: none;
+  }
+  .km-input:focus { border-bottom-color: var(--accent); }
+
+  .text-field {
+    width: 100%;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    padding: 10px 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88rem;
+    color: var(--text);
+    background: var(--bg);
+    resize: none;
+    outline: none;
+    line-height: 1.5;
+    transition: border-color 0.15s;
+    min-height: 58px;
+  }
+  .text-field:focus { border-color: var(--accent); background: white; }
+
+  /* ---- SUGGESTIONS VIEW ---- */
+  #view-suggestions { display: none; }
+  #view-week { display: block; }
+
+  .suggestions-section { margin-bottom: 20px; }
+  .suggestions-section h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.1rem;
+    margin-bottom: 12px;
+    color: var(--text);
+  }
+
+  .suggestion-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--surface);
+    border-radius: var(--radius);
+    margin-bottom: 9px;
+    border: 1.5px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+
+  .sug-check {
+    width: 20px; height: 20px;
+    border-radius: 5px;
+    border: 1.5px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+    cursor: pointer;
+    margin-top: 1px;
+    transition: all 0.15s;
+    background: white;
+  }
+  .suggestion-item.used .sug-check { background: var(--accent2); border-color: var(--accent2); color: white; }
+  .suggestion-item.used .sug-text { text-decoration: line-through; color: var(--muted); }
+
+  .sug-content { flex: 1; }
+  .sug-text { font-size: 0.88rem; line-height: 1.4; color: var(--text); }
+  .sug-link { display: inline-block; margin-top: 4px; font-size: 0.75rem; color: var(--accent); text-decoration: none; word-break: break-all; }
+  .sug-link:hover { text-decoration: underline; }
+
+  .sug-delete { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 1rem; padding: 0 2px; line-height: 1; transition: color 0.15s; }
+  .sug-delete:hover { color: #c0392b; }
+  .sug-edit { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 0.85rem; padding: 0 4px; line-height: 1; transition: color 0.15s; }
+  .sug-edit:hover { color: var(--accent); }
+
+  .add-suggestion-form {
+    background: var(--surface);
+    border-radius: var(--radius);
+    border: 1.5px dashed var(--border);
+    padding: 14px;
+    margin-top: 4px;
+  }
+
+  .add-suggestion-form input {
+    width: 100%;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    padding: 9px 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    background: var(--bg);
+    outline: none;
+    margin-bottom: 8px;
+    transition: border-color 0.15s;
+    color: var(--text);
+  }
+  .add-suggestion-form input:focus { border-color: var(--accent); background: white; }
+
+  .form-row { display: flex; gap: 8px; margin-bottom: 8px; }
+
+  .type-btn {
+    flex: 1;
+    padding: 8px 6px;
+    border-radius: 8px;
+    border: 1.5px solid var(--border);
+    background: var(--bg);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    cursor: pointer;
+    color: var(--muted);
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+  .type-btn.active { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 9px;
+    padding: 10px 18px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    transition: opacity 0.15s;
+  }
+  .btn-primary:hover { opacity: 0.88; }
+
+  .section-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+
+  .chip { background: var(--accent-light); color: var(--accent); border-radius: 20px; padding: 3px 11px; font-size: 0.72rem; font-weight: 600; }
+  .chip.green { background: var(--accent2-light); color: var(--done); }
+
+  .empty-state { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 18px 10px; }
+
+  /* Preview */
+  .day-preview { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+
+  .preview-pill {
+    background: var(--accent-light);
+    color: var(--accent);
+    border-radius: 8px;
+    padding: 3px 9px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+  .preview-pill.food { background: var(--accent2-light); color: #3d6e41; font-size: 0.84rem; border-radius: 8px; width: 100%; }
+
+  .preview-food-row { display: flex; align-items: baseline; gap: 5px; width: 100%; }
+  .preview-food-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0; opacity: 0.7; }
+  .preview-food-text { font-size: 0.88rem; font-weight: 400; line-height: 1.35; flex: 1; }
+  .preview-food-link { font-size: 0.72rem; color: var(--accent); text-decoration: none; margin-left: 4px; flex-shrink: 0; }
+  .preview-food-link:hover { text-decoration: underline; }
+
+  .day-card.today { border-color: var(--accent); }
+  .today-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; margin-right: 3px; }
+
+  .link-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+  .link-row input {
+    flex: 1;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    background: var(--bg);
+    outline: none;
+    color: var(--text);
+    transition: border-color 0.15s;
+  }
+  .link-row input:focus { border-color: var(--accent); background: white; }
+  .link-row a { color: var(--accent); font-size: 1rem; text-decoration: none; flex-shrink: 0; }
+
+  /* Export bar */
+  .export-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .btn-export {
+    padding: 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--text);
+    transition: all 0.15s;
+  }
+  .btn-export:hover { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+
+  /* Modals */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(44,32,22,0.38);
+    z-index: 200;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal-sheet {
+    background: var(--surface);
+    border-radius: 20px 20px 0 0;
+    padding: 20px 20px 36px;
+    width: 100%;
+    max-width: 600px;
+    box-shadow: 0 -4px 30px rgba(44,32,22,0.12);
+    animation: slideUp 0.22s ease;
+  }
+  @keyframes slideUp { from{transform:translateY(60px);opacity:0} to{transform:translateY(0);opacity:1} }
+
+  .modal-title { font-family: 'Playfair Display', serif; font-size: 1.1rem; margin-bottom: 14px; color: var(--text); }
+
+  .modal-sheet input, .modal-sheet textarea {
+    width: 100%;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    padding: 10px 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88rem;
+    background: var(--bg);
+    outline: none;
+    margin-bottom: 10px;
+    color: var(--text);
+    transition: border-color 0.15s;
+  }
+  .modal-sheet input:focus, .modal-sheet textarea:focus { border-color: var(--accent); background: white; }
+
+  .modal-actions { display: flex; gap: 8px; margin-top: 4px; }
+
+  .btn-secondary {
+    flex: 1;
+    padding: 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    background: var(--bg);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88rem;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.15s;
+  }
+  .btn-secondary:hover { background: #f0ebe5; }
+
+  .export-text {
+    width: 100%;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    background: var(--bg);
+    color: var(--text);
+    resize: none;
+    outline: none;
+    line-height: 1.6;
+    margin-bottom: 10px;
+  }
+
+  /* Setup screen */
+  .setup-screen {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 300;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .setup-card {
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 28px 24px;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: 0 8px 40px rgba(44,32,22,0.12);
+    border: 1.5px solid var(--border);
+  }
+  .setup-card h2 { font-family:'Playfair Display',serif; font-size:1.4rem; color:var(--accent); margin-bottom:8px; }
+  .setup-card p { font-size:0.88rem; color:var(--muted); line-height:1.6; margin-bottom:16px; }
+  .setup-card ol { font-size:0.88rem; color:var(--text); line-height:2; padding-left:18px; margin-bottom:18px; }
+  .setup-card ol a { color:var(--accent); }
+  .setup-card input {
+    width: 100%;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    background: var(--bg);
+    outline: none;
+    color: var(--text);
+    margin-bottom: 12px;
+    transition: border-color 0.15s;
+  }
+  .setup-card input:focus { border-color:var(--accent); background:white; }
+  .setup-error { color:#c0392b; font-size:0.82rem; margin-bottom:10px; display:none; }
+
+  @media (max-width: 400px) {
+    .exercise-grid { grid-template-columns: 1fr; }
+    .exercise-full { grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Setup screen — shown only on first visit -->
+<div class="setup-screen" id="setupScreen">
+  <div class="setup-card">
+    <h2>🦆 Hola, bienvenida</h2>
+    <p>Para guardar tus datos en la nube, conecta tu cuenta de GitHub. Solo se hace una vez por dispositivo.</p>
+
+    <ol>
+      <li>Ve a <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens/new</a></li>
+      <li>En <b>Note</b> escribe: <b>mi-olganizacion</b></li>
+      <li>En <b>Expiration</b> elige <b>No expiration</b></li>
+      <li>Marca solo el permiso <b>gist</b></li>
+      <li>Pulsa <b>Generate token</b> y cópialo</li>
+    </ol>
+
+    <input type="password" id="setupToken" placeholder="Token de GitHub (obligatorio)..." />
+
+    <details style="margin-bottom:12px">
+      <summary style="font-size:0.85rem;color:var(--muted);cursor:pointer;margin-bottom:8px">
+        ¿Ya tienes la app en otro dispositivo? Pulsa aquí
+      </summary>
+      <p style="font-size:0.82rem;color:var(--muted);margin:8px 0 8px">
+        Pega el ID de tu Gist para conectarte al mismo que usas en el otro dispositivo.
+        Lo encuentras en <a href="https://gist.github.com" target="_blank">gist.github.com</a> → busca
+        <b>Mi Olganización — datos</b> → copia el código largo de la URL.
+      </p>
+      <input type="text" id="setupGistId" placeholder="ID del Gist (opcional, solo si ya tienes datos)..." />
+    </details>
+
+    <div class="setup-error" id="setupError">Token inválido o sin permisos de Gist. Inténtalo de nuevo.</div>
+    <button class="btn-primary" onclick="setupGist()">Conectar y empezar →</button>
+  </div>
+</div>
+
+<header>
+  <div class="header-top">
+    <h1>🦆 Mi Olganización</h1>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="sync-status" id="syncStatus" onclick="forcSync()" title="Toca para sincronizar ahora">
+        <span class="sync-dot" id="syncDot"></span>
+        <span id="syncLabel">Sincronizando…</span>
+      </span>
+      <div class="week-nav">
+        <button onclick="changeWeek(-1)">‹</button>
+        <span class="week-label" id="weekLabel"></span>
+        <button onclick="changeWeek(1)">›</button>
+      </div>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="showView('week', this)">📅 Semana</button>
+    <button class="tab" onclick="showView('suggestions', this)">💡 Sugerencias</button>
+  </div>
+</header>
+
+<main>
+  <!-- WEEK VIEW -->
+  <div id="view-week">
+    <div class="export-bar">
+      <button class="btn-export" onclick="openExport('week')">📤 Exportar semana</button>
+      <button class="btn-export" onclick="openExport('all')">📋 Exportar todo</button>
+      <button class="btn-export" onclick="backupJSON()">💾 Backup JSON</button>
+      <button class="btn-export" onclick="document.getElementById('restoreInput').click()">📂 Restaurar</button>
+      <input type="file" id="restoreInput" accept=".json" style="display:none" onchange="restoreJSON(event)" />
+    </div>
+    <div id="week-days"></div>
+  </div>
+
+  <!-- SUGGESTIONS VIEW -->
+  <div id="view-suggestions">
+    <div class="suggestions-section">
+      <div class="section-title-row">
+        <h3>🍽 Comidas</h3>
+        <span class="chip" id="count-comidas">0</span>
+      </div>
+      <div id="list-comidas"></div>
+    </div>
+    <div class="suggestions-section">
+      <div class="section-title-row">
+        <h3>🌙 Cenas</h3>
+        <span class="chip" id="count-cenas">0</span>
+      </div>
+      <div id="list-cenas"></div>
+    </div>
+    <div class="suggestions-section">
+      <div class="section-title-row">
+        <h3>❄️ En el congelador</h3>
+        <span class="chip green" id="count-congelador">0</span>
+      </div>
+      <div id="list-congelador"></div>
+    </div>
+
+    <div class="add-suggestion-form">
+      <div style="font-weight:600; font-size:0.88rem; margin-bottom:10px; color:var(--text)">+ Añadir sugerencia</div>
+      <div class="form-row">
+        <button class="type-btn active" onclick="selectType('comidas', this)">🍽 Comida</button>
+        <button class="type-btn" onclick="selectType('cenas', this)">🌙 Cena</button>
+        <button class="type-btn" onclick="selectType('congelador', this)">❄️ Congelador</button>
+      </div>
+      <input type="text" id="sug-name" placeholder="Nombre del plato..." />
+      <input type="url" id="sug-link" placeholder="Link (opcional)..." />
+      <button class="btn-primary" onclick="addSuggestion()">Guardar sugerencia</button>
+    </div>
+  </div>
+</main>
+
+<!-- Edit suggestion modal -->
+<div class="modal-overlay" id="editModal" onclick="closeEditModal(event)">
+  <div class="modal-sheet">
+    <div class="modal-title">✏️ Editar sugerencia</div>
+    <input type="text" id="edit-name" placeholder="Nombre del plato..." />
+    <input type="url" id="edit-link" placeholder="Link (opcional)..." />
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('editModal')">Cancelar</button>
+      <button class="btn-primary" style="flex:1" onclick="saveEdit()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Export modal -->
+<div class="modal-overlay" id="exportModal" onclick="closeEditModal(event)">
+  <div class="modal-sheet">
+    <div class="modal-title">📤 Exportar para IA</div>
+    <textarea class="export-text" id="exportText" rows="14" readonly></textarea>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('exportModal')">Cerrar</button>
+      <button class="btn-primary" style="flex:1" onclick="copyExport()">📋 Copiar todo</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────
+const GIST_FILENAME = 'mi-semana-data.json';
+
+// ─── STATE ────────────────────────────────────────────────
+const DAYS_ES = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const MONTHS_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+const EXERCISES = [
+  { id: 'descanso',   label: '😴 Descanso',   km: false },
+  { id: 'fullbody',   label: '💪 Fullbody',    km: false },
+  { id: 'torso',      label: '🏋️ Torso',       km: false },
+  { id: 'piernas',    label: '🦵 Piernas',     km: false },
+  { id: 'gluteos',    label: '🍑 Glúteos',     km: false },
+  { id: 'abs',        label: '🔥 ABS',         km: false },
+  { id: 'correr',     label: '🏃 Correr',      km: true  },
+  { id: 'paseo',      label: '🚶 Paseo',       km: true  },
+  { id: 'senderismo', label: '🥾 Senderismo',  km: true  },
+  { id: 'otro',       label: '✨ Otro',         km: false, text: true },
+];
+
+const DEFAULT_SUGGESTIONS = {
+  comidas: [
+    { id: 's1', name: 'Ensalada rusa con garbanzos', link: 'https://www.instagram.com/reel/DJ88dk8MT0E/', used: false },
+    { id: 's2', name: 'Pasta con alcachofas', link: '', used: false },
+    { id: 's3', name: 'Ensalada de lentejas', link: '', used: false },
+    { id: 's4', name: 'Revuelto de arroz con verduras y tortilla', link: '', used: false },
+    { id: 's5', name: 'Cuscús de verduras y garbanzos', link: '', used: false },
+    { id: 's6', name: 'Garbanzos con curry, lentejas y espinacas', link: 'https://www.instagram.com/reel/DXCtYKNOCSh/', used: false },
+    { id: 's7', name: 'Bocadillo vegetal de berenjena, tofu, tomate y pesto', link: 'https://www.instagram.com/reel/DXodxFWiErL/', used: false },
+  ],
+  cenas: [
+    { id: 'c1', name: 'Acelgas con patatas y soja texturizada', link: '', used: false },
+    { id: 'c2', name: 'Burritos con arroz, aguacate, tomate, pepino, cebolla y soja texturizada', link: 'https://www.instagram.com/reel/DV_Y-y4iPjk/', used: false },
+    { id: 'c3', name: 'Picoteo de huerta', link: '', used: false },
+    { id: 'c4', name: 'Tortilla y espárragos con mahonesa con pan', link: '', used: false },
+  ],
+  congelador: [
+    { id: 'f1', name: 'Crema de calabaza asada — DESCONGELAR', link: '', used: false },
+  ]
+};
+
+let ghToken = '';
+let gistId = '';
+let data = {};
+let suggestions = JSON.parse(JSON.stringify(DEFAULT_SUGGESTIONS));
+let currentWeekOffset = 0;
+let selectedSugType = 'comidas';
+let syncTimer = null;
+
+// ─── GIST SYNC ────────────────────────────────────────────
+function setSyncStatus(state, label) {
+  const dot = document.getElementById('syncDot');
+  const lbl = document.getElementById('syncLabel');
+  dot.className = 'sync-dot ' + state;
+  lbl.textContent = label;
+}
+
+async function gistRequest(method, path, body) {
+  const res = await fetch('https://api.github.com' + path, {
+    method,
+    headers: {
+      'Authorization': 'token ' + ghToken,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+async function loadFromGist() {
+  setSyncStatus('syncing', 'Cargando…');
+  try {
+    const gist = await gistRequest('GET', '/gists/' + gistId);
+    const raw = gist.files[GIST_FILENAME]?.content;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      data = parsed.data || {};
+      suggestions = parsed.suggestions || JSON.parse(JSON.stringify(DEFAULT_SUGGESTIONS));
+    }
+    setSyncStatus('ok', 'Guardado en la nube');
+  } catch(e) {
+    setSyncStatus('error', 'Error al cargar');
+    console.error(e);
+  }
+}
+
+async function saveToGist() {
+  if (!ghToken || !gistId) return;
+  setSyncStatus('syncing', 'Guardando…');
+  try {
+    const content = JSON.stringify({ data, suggestions, savedAt: new Date().toISOString() }, null, 2);
+    await gistRequest('PATCH', '/gists/' + gistId, {
+      files: { [GIST_FILENAME]: { content } }
+    });
+    setSyncStatus('ok', 'Guardado en la nube ✓');
+  } catch(e) {
+    setSyncStatus('error', 'Error al guardar');
+    console.error(e);
+  }
+}
+
+function save() {
+  // Debounce: wait 1.5s after last change before saving to Gist
+  clearTimeout(syncTimer);
+  setSyncStatus('syncing', 'Guardando…');
+  syncTimer = setTimeout(saveToGist, 1500);
+}
+
+async function forcSync() {
+  clearTimeout(syncTimer);
+  await saveToGist();
+}
+
+// ─── SETUP ────────────────────────────────────────────────
+async function setupGist() {
+  const token = document.getElementById('setupToken').value.trim();
+  const existingGistId = document.getElementById('setupGistId')?.value.trim() || '';
+  if (!token) return;
+
+  setSyncStatus('syncing', 'Conectando…');
+  document.getElementById('setupError').style.display = 'none';
+
+  try {
+    if (existingGistId) {
+      // Connect to existing Gist
+      const res = await fetch('https://api.github.com/gists/' + existingGistId, {
+        headers: {
+          'Authorization': 'token ' + token,
+          'Accept': 'application/vnd.github.v3+json',
+        }
+      });
+      if (!res.ok) throw new Error('Gist no encontrado o token inválido');
+
+      ghToken = token;
+      gistId = existingGistId;
+      localStorage.setItem('gh_token', ghToken);
+      localStorage.setItem('gist_id', gistId);
+
+      document.getElementById('setupScreen').style.display = 'none';
+      await loadFromGist();
+      renderWeek();
+
+    } else {
+      // Create new Gist
+      const res = await fetch('https://api.github.com/gists', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'token ' + token,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          description: 'Mi Olganización — datos',
+          public: false,
+          files: {
+            [GIST_FILENAME]: {
+              content: JSON.stringify({ data: {}, suggestions: DEFAULT_SUGGESTIONS, savedAt: new Date().toISOString() }, null, 2)
+            }
+          }
+        })
+      });
+
+      if (!res.ok) throw new Error('Token inválido');
+      const gist = await res.json();
+
+      ghToken = token;
+      gistId = gist.id;
+      localStorage.setItem('gh_token', ghToken);
+      localStorage.setItem('gist_id', gistId);
+
+      document.getElementById('setupScreen').style.display = 'none';
+      setSyncStatus('ok', 'Conectado ✓');
+      renderWeek();
+    }
+
+  } catch(e) {
+    document.getElementById('setupError').style.display = 'block';
+    document.getElementById('setupError').textContent = e.message || 'Token inválido o sin permisos de Gist.';
+    setSyncStatus('error', 'Error');
+    console.error(e);
+  }
+}
+
+async function init() {
+  ghToken = localStorage.getItem('gh_token') || '';
+  gistId = localStorage.getItem('gist_id') || '';
+
+  if (ghToken && gistId) {
+    document.getElementById('setupScreen').style.display = 'none';
+    await loadFromGist();
+    renderWeek();
+  }
+  // else: setup screen stays visible
+}
+
+// ─── DATE UTILS ───────────────────────────────────────────
+function getWeekStart(offset = 0) {
+  const now = new Date();
+  const day = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + offset * 7);
+  monday.setHours(0,0,0,0);
+  return monday;
+}
+
+function dateKey(d) { return d.toISOString().slice(0,10); }
+
+function getDayData(key) {
+  if (!data[key]) data[key] = { done: false, exercises: {}, comida: '', cena: '', comidaLink: '', cenaLink: '' };
+  return data[key];
+}
+
+// ─── UI ───────────────────────────────────────────────────
+function showView(view, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('view-week').style.display = view === 'week' ? 'block' : 'none';
+  document.getElementById('view-suggestions').style.display = view === 'suggestions' ? 'block' : 'none';
+  if (view === 'suggestions') renderSuggestions();
+}
+
+function changeWeek(dir) {
+  currentWeekOffset += dir;
+  renderWeek();
+}
+
+function renderWeek() {
+  const weekStart = getWeekStart(currentWeekOffset);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  const fmt = d => `${d.getDate()} ${MONTHS_ES[d.getMonth()]}`;
+  document.getElementById('weekLabel').textContent = `${fmt(weekStart)} – ${fmt(weekEnd)}`;
+
+  const today = dateKey(new Date());
+  const container = document.getElementById('week-days');
+  container.innerHTML = '';
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    const key = dateKey(d);
+    const dayData = getDayData(key);
+    const isToday = key === today;
+
+    const card = document.createElement('div');
+    card.className = 'day-card' + (isToday ? ' today open' : '');
+    card.id = 'card-' + key;
+
+    card.innerHTML = `
+      <div class="day-header" onclick="toggleDay('${key}')">
+        <div style="flex:1;min-width:0">
+          <div class="day-title">
+            ${isToday ? '<span class="today-dot"></span>' : ''}
+            <span class="day-name">${DAYS_ES[d.getDay()]}</span>
+            <span class="day-date">${d.getDate()} ${MONTHS_ES[d.getMonth()]}</span>
+          </div>
+          <div class="day-preview" id="preview-${key}"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <span class="done-badge ${dayData.done ? 'active' : ''}" id="done-${key}"
+            onclick="event.stopPropagation();toggleDone('${key}')">
+            ${dayData.done ? '✅ Hecho' : '○ Pendiente'}
+          </span>
+          <span class="day-chevron">▾</span>
+        </div>
+      </div>
+      <div class="day-body ${isToday ? 'open' : ''}" id="body-${key}">
+        <div class="field-label">🏋️ Ejercicio</div>
+        <div class="exercise-grid" id="ex-${key}"></div>
+        <div class="field-label">☀️ Comida</div>
+        <textarea class="text-field" rows="2" placeholder="¿Qué comes hoy?"
+          oninput="saveField('${key}','comida',this.value)">${dayData.comida||''}</textarea>
+        <div class="link-row">
+          <input type="url" placeholder="🔗 Link receta comida (opcional)"
+            value="${dayData.comidaLink||''}"
+            oninput="saveField('${key}','comidaLink',this.value)" />
+          ${dayData.comidaLink ? `<a href="${dayData.comidaLink}" target="_blank">🔗</a>` : '<span style="width:20px"></span>'}
+        </div>
+        <div class="field-label">🌙 Cena</div>
+        <textarea class="text-field" rows="2" placeholder="¿Qué cenas hoy?"
+          oninput="saveField('${key}','cena',this.value)">${dayData.cena||''}</textarea>
+        <div class="link-row">
+          <input type="url" placeholder="🔗 Link receta cena (opcional)"
+            value="${dayData.cenaLink||''}"
+            oninput="saveField('${key}','cenaLink',this.value)" />
+          ${dayData.cenaLink ? `<a href="${dayData.cenaLink}" target="_blank">🔗</a>` : '<span style="width:20px"></span>'}
+        </div>
+      </div>
+    `;
+
+    container.appendChild(card);
+    renderExercises(key, dayData);
+    updatePreview(key, dayData);
+  }
+}
+
+function renderExercises(key, dayData) {
+  const grid = document.getElementById('ex-' + key);
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  EXERCISES.forEach(ex => {
+    const exData = (dayData.exercises || {})[ex.id] || { checked: false, km: '', text: '' };
+    const item = document.createElement('div');
+    item.className = 'exercise-item' + (ex.km || ex.text ? ' exercise-full' : '') + (exData.checked ? ' checked' : '');
+    item.id = `exitem-${key}-${ex.id}`;
+
+    let extra = '';
+    if (ex.km) {
+      extra = `<div class="km-input-wrap">
+        <input class="km-input" type="number" min="0" step="0.1" placeholder="0"
+          value="${exData.km||''}"
+          oninput="saveKm('${key}','${ex.id}',this.value)" />
+        <span style="font-size:0.78rem;color:var(--muted)">km</span>
+      </div>`;
+    } else if (ex.text) {
+      extra = `<input class="km-input" type="text" placeholder="¿cuál?" style="width:90px"
+        value="${exData.text||''}"
+        oninput="saveExText('${key}','${ex.id}',this.value)" />`;
+    }
+
+    item.innerHTML = `
+      <span class="ex-check" id="excheck-${key}-${ex.id}">${exData.checked ? '✓' : ''}</span>
+      <span style="flex:1">${ex.label}</span>
+      ${extra}
+    `;
+
+    item.addEventListener('click', function(e) {
+      if (e.target.tagName === 'INPUT') return;
+      if (!data[key]) data[key] = { done: false, exercises: {}, comida: '', cena: '' };
+      if (!data[key].exercises) data[key].exercises = {};
+      if (!data[key].exercises[ex.id]) data[key].exercises[ex.id] = { checked: false, km: '', text: '' };
+      data[key].exercises[ex.id].checked = !data[key].exercises[ex.id].checked;
+      save();
+      const newChecked = data[key].exercises[ex.id].checked;
+      item.classList.toggle('checked', newChecked);
+      const chkSpan = document.getElementById(`excheck-${key}-${ex.id}`);
+      if (chkSpan) chkSpan.textContent = newChecked ? '✓' : '';
+      updatePreview(key, getDayData(key));
+    });
+
+    grid.appendChild(item);
+  });
+}
+
+function saveKm(key, exId, val) {
+  if (!data[key]) data[key] = {};
+  if (!data[key].exercises) data[key].exercises = {};
+  if (!data[key].exercises[exId]) data[key].exercises[exId] = {};
+  data[key].exercises[exId].km = val;
+  save();
+}
+
+function saveExText(key, exId, val) {
+  if (!data[key]) data[key] = {};
+  if (!data[key].exercises) data[key].exercises = {};
+  if (!data[key].exercises[exId]) data[key].exercises[exId] = {};
+  data[key].exercises[exId].text = val;
+  save();
+}
+
+function saveField(key, field, val) {
+  if (!data[key]) data[key] = {};
+  data[key][field] = val;
+  save();
+  updatePreview(key, getDayData(key));
+}
+
+function toggleDone(key) {
+  const d = getDayData(key);
+  d.done = !d.done;
+  data[key] = d;
+  save();
+  const badge = document.getElementById('done-' + key);
+  if (badge) {
+    badge.className = 'done-badge' + (d.done ? ' active' : '');
+    badge.textContent = d.done ? '✅ Hecho' : '○ Pendiente';
+  }
+}
+
+function toggleDay(key) {
+  const card = document.getElementById('card-' + key);
+  const body = document.getElementById('body-' + key);
+  if (!card || !body) return;
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  card.classList.toggle('open', !isOpen);
+}
+
+function updatePreview(key, dayData) {
+  const preview = document.getElementById('preview-' + key);
+  if (!preview) return;
+  preview.innerHTML = '';
+
+  const checked = Object.entries(dayData.exercises || {})
+    .filter(([k,v]) => v && v.checked)
+    .map(([k,v]) => {
+      const ex = EXERCISES.find(e=>e.id===k);
+      let label = ex?.label || k;
+      if (ex?.km && v.km) label += ' ' + v.km + 'km';
+      if (ex?.text && v.text) label += ': ' + v.text;
+      return label;
+    });
+
+  if (checked.length) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;width:100%;margin-bottom:4px';
+    checked.forEach(l => {
+      const p = document.createElement('span');
+      p.className = 'preview-pill';
+      p.textContent = l;
+      row.appendChild(p);
+    });
+    preview.appendChild(row);
+  }
+
+  const makeFoodRow = (emoji, text, link) => {
+    if (!text) return;
+    const pill = document.createElement('div');
+    pill.className = 'preview-pill food';
+    const linkHtml = link
+      ? `<a class="preview-food-link" href="${link}" target="_blank" onclick="event.stopPropagation()">🔗</a>`
+      : '';
+    pill.innerHTML = `<div class="preview-food-row">
+      <span class="preview-food-label">${emoji}</span>
+      <span class="preview-food-text">${text}</span>
+      ${linkHtml}
+    </div>`;
+    preview.appendChild(pill);
+  };
+
+  makeFoodRow('☀️', dayData.comida, dayData.comidaLink);
+  makeFoodRow('🌙', dayData.cena, dayData.cenaLink);
+}
+
+// ─── SUGGESTIONS ──────────────────────────────────────────
+function selectType(type, btn) {
+  selectedSugType = type;
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function renderSuggestions() {
+  ['comidas','cenas','congelador'].forEach(type => {
+    const list = document.getElementById('list-' + type);
+    const count = document.getElementById('count-' + type);
+    list.innerHTML = '';
+    const items = suggestions[type] || [];
+    count.textContent = items.filter(i=>!i.used).length + ' disponibles';
+
+    if (!items.length) {
+      list.innerHTML = '<div class="empty-state">Sin sugerencias aún</div>';
+      return;
+    }
+
+    items.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'suggestion-item' + (item.used ? ' used' : '');
+      div.innerHTML = `
+        <div class="sug-check" onclick="toggleSugUsed('${type}','${item.id}')">${item.used ? '✓' : ''}</div>
+        <div class="sug-content">
+          <div class="sug-text">${item.name}</div>
+          ${item.link ? `<a class="sug-link" href="${item.link}" target="_blank">🔗 Ver receta</a>` : ''}
+        </div>
+        <button class="sug-edit" onclick="openEditModal('${type}','${item.id}')" title="Editar">✏️</button>
+        <button class="sug-delete" onclick="deleteSug('${type}','${item.id}')" title="Eliminar">×</button>
+      `;
+      list.appendChild(div);
+    });
+  });
+}
+
+let editingType = null, editingId = null;
+
+function openEditModal(type, id) {
+  editingType = type; editingId = id;
+  const item = suggestions[type].find(i => i.id === id);
+  if (!item) return;
+  document.getElementById('edit-name').value = item.name;
+  document.getElementById('edit-link').value = item.link || '';
+  document.getElementById('editModal').classList.add('open');
+}
+
+function saveEdit() {
+  const name = document.getElementById('edit-name').value.trim();
+  const link = document.getElementById('edit-link').value.trim();
+  if (!name || !editingType || !editingId) return;
+  const item = suggestions[editingType].find(i => i.id === editingId);
+  if (item) { item.name = name; item.link = link; }
+  save();
+  closeModal('editModal');
+  renderSuggestions();
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeEditModal(e) { if (e.target.classList.contains('modal-overlay')) e.target.classList.remove('open'); }
+
+function toggleSugUsed(type, id) {
+  const item = suggestions[type].find(i => i.id === id);
+  if (item) { item.used = !item.used; save(); renderSuggestions(); }
+}
+
+function deleteSug(type, id) {
+  suggestions[type] = suggestions[type].filter(i => i.id !== id);
+  save(); renderSuggestions();
+}
+
+function addSuggestion() {
+  const name = document.getElementById('sug-name').value.trim();
+  const link = document.getElementById('sug-link').value.trim();
+  if (!name) return;
+  suggestions[selectedSugType].push({ id: 's' + Date.now(), name, link, used: false });
+  document.getElementById('sug-name').value = '';
+  document.getElementById('sug-link').value = '';
+  save(); renderSuggestions();
+}
+
+// ─── EXPORT ───────────────────────────────────────────────
+function openExport(mode) {
+  let text = '';
+  const allKeys = Object.keys(data).sort();
+  const weekStart = getWeekStart(currentWeekOffset);
+  const weekKeys = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    weekKeys.push(dateKey(d));
+  }
+  const keys = mode === 'week' ? weekKeys : allKeys;
+
+  keys.forEach(key => {
+    const d = data[key];
+    if (!d) return;
+    const date = new Date(key);
+    const label = `${DAYS_ES[date.getDay()]} ${date.getDate()} de ${MONTHS_ES[date.getMonth()]}`;
+    text += `\n${label}${d.done ? ' ✅' : ''}\n`;
+
+    const exChecked = Object.entries(d.exercises || {})
+      .filter(([k,v]) => v && v.checked)
+      .map(([k,v]) => {
+        const ex = EXERCISES.find(e=>e.id===k);
+        let lbl = ex?.label?.replace(/\p{Emoji}/gu,'').trim() || k;
+        if (ex?.km && v.km) lbl += ' ' + v.km + ' km';
+        if (ex?.text && v.text) lbl += ': ' + v.text;
+        return lbl;
+      });
+
+    if (exChecked.length) text += `• Ejercicio: ${exChecked.join(', ')}\n`;
+    if (d.comida) text += `• Comida: ${d.comida}${d.comidaLink ? ' ('+d.comidaLink+')' : ''}\n`;
+    if (d.cena) text += `• Cena: ${d.cena}${d.cenaLink ? ' ('+d.cenaLink+')' : ''}\n`;
+  });
+
+  if (mode === 'all') {
+    text += '\n\n--- SUGERENCIAS ---\n';
+    ['comidas','cenas','congelador'].forEach(type => {
+      const label = type === 'comidas' ? 'Comidas' : type === 'cenas' ? 'Cenas' : 'Congelador';
+      const items = suggestions[type]?.filter(i => !i.used);
+      if (items?.length) {
+        text += `\n${label}:\n`;
+        items.forEach(i => { text += `- ${i.name}${i.link ? ' ('+i.link+')' : ''}\n`; });
+      }
+    });
+  }
+
+  document.getElementById('exportText').value = text.trim();
+  document.getElementById('exportModal').classList.add('open');
+}
+
+function copyExport() {
+  const ta = document.getElementById('exportText');
+  ta.select();
+  navigator.clipboard.writeText(ta.value).catch(() => {});
+  const btn = document.querySelector('#exportModal .btn-primary');
+  btn.textContent = '✅ ¡Copiado!';
+  setTimeout(() => btn.textContent = '📋 Copiar todo', 1800);
+}
+
+// ─── JSON BACKUP ──────────────────────────────────────────
+function backupJSON() {
+  const backup = { data, suggestions, exportedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `mi-semana-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function restoreJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const backup = JSON.parse(e.target.result);
+      if (!backup.data || !backup.suggestions) throw new Error();
+      if (!confirm('¿Restaurar los datos? Se reemplazará todo lo actual.')) return;
+      data = backup.data;
+      suggestions = backup.suggestions;
+      save();
+      renderWeek();
+      alert('✅ Datos restaurados correctamente.');
+    } catch {
+      alert('❌ Archivo no válido.');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// ─── INIT ─────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
