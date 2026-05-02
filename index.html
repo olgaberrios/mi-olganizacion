@@ -625,6 +625,7 @@
       <button class="btn-export" onclick="openExport('all')">📋 Exportar todo</button>
       <button class="btn-export" onclick="backupJSON()">💾 Backup JSON</button>
       <button class="btn-export" onclick="document.getElementById('restoreInput').click()">📂 Restaurar</button>
+      <button class="btn-export" style="grid-column:1/-1;background:var(--accent-light);color:var(--accent);border-color:var(--accent)" onclick="showGistInfo()">🔗 Ver mi Gist ID</button>
       <input type="file" id="restoreInput" accept=".json" style="display:none" onchange="restoreJSON(event)" />
     </div>
     <div id="week-days"></div>
@@ -677,6 +678,19 @@
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal('editModal')">Cancelar</button>
       <button class="btn-primary" style="flex:1" onclick="saveEdit()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Gist ID info modal -->
+<div class="modal-overlay" id="gistInfoModal" onclick="closeEditModal(event)">
+  <div class="modal-sheet">
+    <div class="modal-title">🔗 Tu Gist ID</div>
+    <p style="font-size:0.82rem;color:var(--muted);margin-bottom:12px">Copia este ID y pégalo en el segundo dispositivo al configurar la app:</p>
+    <div id="gistIdDisplay" style="background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:14px;font-family:monospace;font-size:0.82rem;word-break:break-all;margin-bottom:12px;color:var(--text)"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('gistInfoModal')">Cerrar</button>
+      <button class="btn-primary" style="flex:1" onclick="copyGistId()">📋 Copiar ID</button>
     </div>
   </div>
 </div>
@@ -1271,6 +1285,18 @@ function copyExport() {
   const btn = document.querySelector('#exportModal .btn-primary');
   btn.textContent = '✅ ¡Copiado!';
   setTimeout(() => btn.textContent = '📋 Copiar todo', 1800);
+}
+
+function showGistInfo() {
+  document.getElementById('gistIdDisplay').textContent = gistId || '(no configurado)';
+  document.getElementById('gistInfoModal').classList.add('open');
+}
+
+function copyGistId() {
+  navigator.clipboard.writeText(gistId).catch(() => {});
+  const btn = document.querySelector('#gistInfoModal .btn-primary');
+  btn.textContent = '✅ ¡Copiado!';
+  setTimeout(() => btn.textContent = '📋 Copiar ID', 1800);
 }
 
 // ─── JSON BACKUP ──────────────────────────────────────────
