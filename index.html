@@ -924,7 +924,12 @@ function getWeekStart(offset = 0) {
   return monday;
 }
 
-function dateKey(d) { return d.toISOString().slice(0,10); }
+function dateKey(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 function getDayData(key) {
   if (!data[key]) data[key] = { done: false, exercises: {}, comida: '', cena: '', comidaLink: '', cenaLink: '' };
