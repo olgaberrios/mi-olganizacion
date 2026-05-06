@@ -34,7 +34,7 @@
   header {
     background: var(--surface);
     border-bottom: 1.5px solid var(--border);
-    padding: 20px 20px 0;
+    padding: 14px 20px 0;
     position: sticky;
     top: 0;
     z-index: 100;
@@ -45,7 +45,15 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 14px;
+    margin-bottom: 10px;
+  }
+
+  .header-middle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    gap: 10px;
   }
 
   h1 {
@@ -404,6 +412,9 @@
   .preview-food-link:hover { text-decoration: underline; }
 
   .day-card.today { border-color: var(--accent); }
+  .day-card.done { background: var(--accent2-light); border-color: var(--done); }
+  .day-card.done .day-header { background: var(--accent2-light); }
+  .day-card.done .day-name { color: var(--done); }
   .today-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; margin-right: 3px; }
 
   .link-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
@@ -599,16 +610,16 @@
 <header>
   <div class="header-top">
     <h1>🦆 Mi Olganización</h1>
-    <div style="display:flex;align-items:center;gap:8px">
-      <span class="sync-status" id="syncStatus" onclick="forcSync()" title="Toca para sincronizar ahora">
-        <span class="sync-dot" id="syncDot"></span>
-        <span id="syncLabel">Sincronizando…</span>
-      </span>
-      <div class="week-nav">
-        <button onclick="changeWeek(-1)">‹</button>
-        <span class="week-label" id="weekLabel"></span>
-        <button onclick="changeWeek(1)">›</button>
-      </div>
+  </div>
+  <div class="header-middle">
+    <span class="sync-status" id="syncStatus" onclick="forcSync()" title="Toca para sincronizar ahora">
+      <span class="sync-dot" id="syncDot"></span>
+      <span id="syncLabel">Sincronizando…</span>
+    </span>
+    <div class="week-nav">
+      <button onclick="changeWeek(-1)">‹</button>
+      <span class="week-label" id="weekLabel"></span>
+      <button onclick="changeWeek(1)">›</button>
     </div>
   </div>
   <div class="tabs">
@@ -623,10 +634,7 @@
     <div class="export-bar">
       <button class="btn-export" onclick="openExport('week')">📤 Exportar semana</button>
       <button class="btn-export" onclick="openExport('all')">📋 Exportar todo</button>
-      <button class="btn-export" onclick="backupJSON()">💾 Backup JSON</button>
-      <button class="btn-export" onclick="document.getElementById('restoreInput').click()">📂 Restaurar</button>
       <button class="btn-export" style="grid-column:1/-1;background:var(--accent-light);color:var(--accent);border-color:var(--accent)" onclick="showGistInfo()">🔗 Ver mi Gist ID</button>
-      <input type="file" id="restoreInput" accept=".json" style="display:none" onchange="restoreJSON(event)" />
     </div>
     <div id="week-days"></div>
   </div>
@@ -723,6 +731,7 @@ const EXERCISES = [
   { id: 'gluteos',    label: '🍑 Glúteos',     km: false },
   { id: 'abs',        label: '🔥 ABS',         km: false },
   { id: 'correr',     label: '🏃 Correr',      km: true  },
+  { id: 'bici',       label: '🚴 Bici',        km: true  },
   { id: 'paseo',      label: '🚶 Paseo',       km: true  },
   { id: 'senderismo', label: '🥾 Senderismo',  km: true  },
   { id: 'otro',       label: '✨ Otro',         km: false, text: true },
@@ -955,7 +964,7 @@ function renderWeek() {
     const isToday = key === today;
 
     const card = document.createElement('div');
-    card.className = 'day-card' + (isToday ? ' today open' : '');
+    card.className = 'day-card' + (isToday ? ' today open' : '') + (dayData.done ? ' done' : '');
     card.id = 'card-' + key;
 
     card.innerHTML = `
@@ -1088,6 +1097,8 @@ function toggleDone(key) {
     badge.className = 'done-badge' + (d.done ? ' active' : '');
     badge.textContent = d.done ? '✅ Hecho' : '○ Pendiente';
   }
+  const card = document.getElementById('card-' + key);
+  if (card) card.classList.toggle('done', d.done);
 }
 
 function toggleDay(key) {
