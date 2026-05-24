@@ -401,6 +401,7 @@
     overflow: hidden;
   }
   .recipe-card.probada { border-left: 4px solid var(--done); }
+  .recipe-card.favorita { border-left: 4px solid #f0a500; }
   .recipe-card.descongelar { border-left: 4px solid #5b9bd5; }
 
   .recipe-main {
@@ -436,6 +437,7 @@
   .recipe-tag.estacion { background: #fff3e0; color: #e65100; }
   .recipe-tag.proteina { background: var(--accent2-light); color: #2e7d32; }
   .recipe-tag.estado-probada { background: var(--accent2-light); color: var(--done); }
+  .recipe-tag.estado-favorita { background: #fff8e1; color: #e65100; }
   .recipe-tag.estado-descongelar { background: #e3f2fd; color: #1565c0; }
 
   .recipe-link {
@@ -702,7 +704,30 @@
   .setup-card input:focus { border-color:var(--accent); background:white; }
   .setup-error { color:#c0392b; font-size:0.82rem; margin-bottom:10px; display:none; }
 
-  @media (max-width: 400px) {
+  /* Autocomplete */
+  .autocomplete-wrap { position: relative; }
+  .autocomplete-list {
+    position: absolute;
+    top: 100%;
+    left: 0; right: 0;
+    background: var(--surface);
+    border: 1.5px solid var(--accent);
+    border-radius: 0 0 10px 10px;
+    box-shadow: 0 8px 20px rgba(44,32,22,0.12);
+    z-index: 50;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .autocomplete-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+  }
+  .autocomplete-item:last-child { border-bottom: none; }
+  .autocomplete-item:hover { background: var(--accent-light); }
+  .autocomplete-item-name { font-size: 0.88rem; font-weight: 500; color: var(--text); }
+  .autocomplete-item-tags { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
     .exercise-grid { grid-template-columns: 1fr; }
     .exercise-full { grid-column: 1; }
   }
@@ -808,6 +833,7 @@
           <button class="fpill active" data-val="">Todas</button>
           <button class="fpill" data-val="sin-probar">⭕ Sin probar</button>
           <button class="fpill" data-val="probada">✅ Probada</button>
+          <button class="fpill" data-val="favorita">⭐ Favoritas</button>
           <button class="fpill" data-val="descongelar">🧊 Descongelar</button>
         </div>
       </div>
@@ -851,6 +877,7 @@
     <div class="tag-selector" id="edit-estado">
       <button class="tag-opt" data-val="sin-probar">⭕ Sin probar</button>
       <button class="tag-opt" data-val="probada">✅ Probada</button>
+      <button class="tag-opt" data-val="favorita">⭐ Favorita</button>
       <button class="tag-opt" data-val="descongelar">🧊 Descongelar</button>
     </div>
 
@@ -1165,20 +1192,34 @@ function renderWeek() {
         <div class="field-label">🏋️ Ejercicio</div>
         <div class="exercise-grid" id="ex-${key}"></div>
         <div class="field-label">☀️ Comida</div>
-        <textarea class="text-field" rows="2" placeholder="¿Qué comes hoy?"
-          oninput="saveField('${key}','comida',this.value)">${dayData.comida||''}</textarea>
+        <div class="autocomplete-wrap">
+          <textarea class="text-field" rows="2" placeholder="¿Qué comes hoy?"
+            oninput="saveField('${key}','comida',this.value); showAutocomplete(this,'${key}','comida')"
+            onblur="hideAutocomplete('ac-${key}-comida')"
+            onfocus="showAutocomplete(this,'${key}','comida')"
+            >${dayData.comida||''}</textarea>
+          <div class="autocomplete-list" id="ac-${key}-comida" style="display:none"></div>
+        </div>
         <div class="link-row">
           <input type="url" placeholder="🔗 Link receta comida (opcional)"
             value="${dayData.comidaLink||''}"
+            id="link-${key}-comida"
             oninput="saveField('${key}','comidaLink',this.value)" />
           ${dayData.comidaLink ? `<a href="${dayData.comidaLink}" target="_blank">🔗</a>` : '<span style="width:20px"></span>'}
         </div>
         <div class="field-label">🌙 Cena</div>
-        <textarea class="text-field" rows="2" placeholder="¿Qué cenas hoy?"
-          oninput="saveField('${key}','cena',this.value)">${dayData.cena||''}</textarea>
+        <div class="autocomplete-wrap">
+          <textarea class="text-field" rows="2" placeholder="¿Qué cenas hoy?"
+            oninput="saveField('${key}','cena',this.value); showAutocomplete(this,'${key}','cena')"
+            onblur="hideAutocomplete('ac-${key}-cena')"
+            onfocus="showAutocomplete(this,'${key}','cena')"
+            >${dayData.cena||''}</textarea>
+          <div class="autocomplete-list" id="ac-${key}-cena" style="display:none"></div>
+        </div>
         <div class="link-row">
           <input type="url" placeholder="🔗 Link receta cena (opcional)"
             value="${dayData.cenaLink||''}"
+            id="link-${key}-cena"
             oninput="saveField('${key}','cenaLink',this.value)" />
           ${dayData.cenaLink ? `<a href="${dayData.cenaLink}" target="_blank">🔗</a>` : '<span style="width:20px"></span>'}
         </div>
@@ -1332,10 +1373,64 @@ function updatePreview(key, dayData) {
   makeFoodRow('🌙', dayData.cena, dayData.cenaLink);
 }
 
+// ─── AUTOCOMPLETE ─────────────────────────────────────────
+function showAutocomplete(textarea, key, field) {
+  const query = textarea.value.trim().toLowerCase();
+  const listId = `ac-${key}-${field}`;
+  const list = document.getElementById(listId);
+  if (!list) return;
+
+  if (!query || query.length < 1) { list.style.display = 'none'; return; }
+
+  const recipes = getRecipes();
+  const matches = recipes.filter(r => r.name.toLowerCase().includes(query)).slice(0, 6);
+
+  if (!matches.length) { list.style.display = 'none'; return; }
+
+  list.innerHTML = '';
+  matches.forEach(r => {
+    const item = document.createElement('div');
+    item.className = 'autocomplete-item';
+    const tags = [
+      ESTACION_LABELS[r.estacion] || '',
+      PROTEINA_LABELS[r.proteina] || '',
+    ].filter(Boolean).join(' · ');
+    item.innerHTML = `
+      <div class="autocomplete-item-name">${r.name}</div>
+      ${tags ? `<div class="autocomplete-item-tags">${tags}</div>` : ''}
+    `;
+    // Use mousedown so it fires before blur hides the list
+    item.addEventListener('mousedown', e => {
+      e.preventDefault();
+      textarea.value = r.name;
+      saveField(key, field, r.name);
+      if (r.link) {
+        const linkInput = document.getElementById(`link-${key}-${field}`);
+        if (linkInput) {
+          linkInput.value = r.link;
+          saveField(key, field + 'Link', r.link);
+        }
+      }
+      list.style.display = 'none';
+      updatePreview(key, getDayData(key));
+    });
+    list.appendChild(item);
+  });
+
+  list.style.display = 'block';
+}
+
+function hideAutocomplete(listId) {
+  setTimeout(() => {
+    const list = document.getElementById(listId);
+    if (list) list.style.display = 'none';
+  }, 150);
+}
+
 // ─── RECIPES ──────────────────────────────────────────────
 const ESTACION_LABELS = { verano: '☀️ Verano', invierno: '❄️ Invierno', todo: '🗓️ Todo el año' };
 const PROTEINA_LABELS = { legumbres: '🫘 Legumbres', soja: '🌱 Soja', tofu: '⬜ Tofu', huevo: '🍳 Huevo', queso: '🧀 Queso', verduras: '🥬 Solo verduras', heura: '🍗 Heura' };
-const ESTADO_LABELS   = { probada: '✅ Probada', descongelar: '🧊 Descongelar' };
+const ESTADO_LABELS   = { probada: '✅ Probada', favorita: '⭐ Favorita', descongelar: '🧊 Descongelar' };
 
 let activeFilters = { estacion: '', proteina: '', estado: '' };
 let editingRecipeId = null;
@@ -1350,8 +1445,9 @@ function renderSuggestions() {
   let filtered = recipes.filter(r => {
     if (activeFilters.estacion && r.estacion !== activeFilters.estacion) return false;
     if (activeFilters.proteina && r.proteina !== activeFilters.proteina) return false;
-    if (activeFilters.estado === 'sin-probar' && (r.estado === 'probada' || r.estado === 'descongelar')) return false;
+    if (activeFilters.estado === 'sin-probar' && (r.estado === 'probada' || r.estado === 'favorita' || r.estado === 'descongelar')) return false;
     if (activeFilters.estado === 'probada' && r.estado !== 'probada') return false;
+    if (activeFilters.estado === 'favorita' && r.estado !== 'favorita') return false;
     if (activeFilters.estado === 'descongelar' && r.estado !== 'descongelar') return false;
     return true;
   });
@@ -1377,6 +1473,7 @@ function renderSuggestions() {
     if (item.estacion) tags.push(`<span class="recipe-tag estacion">${ESTACION_LABELS[item.estacion] || item.estacion}</span>`);
     if (item.proteina) tags.push(`<span class="recipe-tag proteina">${PROTEINA_LABELS[item.proteina] || item.proteina}</span>`);
     if (item.estado === 'probada') tags.push(`<span class="recipe-tag estado-probada">✅ Probada</span>`);
+    if (item.estado === 'favorita') tags.push(`<span class="recipe-tag estado-favorita">⭐ Favorita</span>`);
     if (item.estado === 'descongelar') tags.push(`<span class="recipe-tag estado-descongelar">🧊 Descongelar</span>`);
 
     card.innerHTML = `
