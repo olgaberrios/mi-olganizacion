@@ -704,7 +704,131 @@
   .setup-card input:focus { border-color:var(--accent); background:white; }
   .setup-error { color:#c0392b; font-size:0.82rem; margin-bottom:10px; display:none; }
 
-  /* Autocomplete */
+  /* ---- SHOPPING LIST ---- */
+  .compra-toolbar {
+    background: var(--surface);
+    border-radius: var(--radius);
+    border: 1.5px solid var(--border);
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow);
+  }
+
+  .pasillo-section { margin-bottom: 6px; }
+
+  .pasillo-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--accent-light);
+    border-radius: 10px;
+    margin-bottom: 4px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .pasillo-name {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .pasillo-count { font-size: 0.72rem; color: var(--muted); }
+
+  .pasillo-items { margin-bottom: 4px; }
+
+  .producto-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    background: var(--surface);
+    border-radius: 9px;
+    margin-bottom: 3px;
+    border: 1.5px solid var(--border);
+    transition: all 0.15s;
+  }
+
+  .producto-item.comprado {
+    opacity: 0.45;
+    background: var(--bg);
+  }
+
+  .producto-check {
+    width: 20px; height: 20px;
+    border-radius: 5px;
+    border: 1.5px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: white;
+  }
+
+  .producto-item:not(.comprado) .producto-check {
+    border-color: var(--accent);
+  }
+
+  .producto-item.comprado .producto-check {
+    background: var(--border);
+    border-color: var(--border);
+    color: var(--muted);
+  }
+
+  .producto-info { flex: 1; min-width: 0; }
+
+  .producto-name {
+    font-size: 0.88rem;
+    color: var(--text);
+    line-height: 1.3;
+  }
+
+  .producto-item.comprado .producto-name {
+    text-decoration: line-through;
+    color: var(--muted);
+  }
+
+  .producto-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+  }
+
+  .producto-cantidad {
+    font-size: 0.72rem;
+    color: var(--muted);
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 1px 7px;
+    border: 1px solid var(--border);
+  }
+
+  .producto-basico {
+    font-size: 0.68rem;
+    color: #e65100;
+  }
+
+  .producto-duplicado {
+    font-size: 0.68rem;
+    color: var(--muted);
+  }
+
+  .prod-edit-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 0.82rem;
+    padding: 2px 4px;
+    transition: color 0.15s;
+    flex-shrink: 0;
+  }
+  .prod-edit-btn:hover { color: var(--accent); }
   .autocomplete-wrap { position: relative; }
   .autocomplete-list {
     position: absolute;
@@ -785,7 +909,8 @@
   </div>
   <div class="tabs">
     <button class="tab active" onclick="showView('week', this)">📅 Semana</button>
-    <button class="tab" onclick="showView('suggestions', this)">💡 Sugerencias</button>
+    <button class="tab" onclick="showView('suggestions', this)">💡 Recetas</button>
+    <button class="tab" onclick="showView('compra', this)">🛒 Compra</button>
   </div>
 </header>
 
@@ -846,9 +971,50 @@
 
     <div id="list-recetas"></div>
   </div>
+
+  <!-- SHOPPING VIEW -->
+  <div id="view-compra" style="display:none">
+    <div class="compra-toolbar">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="fpill active" id="filtro-todos" onclick="setCompraFiltro('todos',this)">Todos</button>
+        <button class="fpill" id="filtro-comprar" onclick="setCompraFiltro('comprar',this)">🛒 Por comprar</button>
+        <button class="fpill" id="filtro-basicos" onclick="setCompraFiltro('basicos',this)">⭐ Básicos</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+        <label style="font-size:0.8rem;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer">
+          <input type="checkbox" id="toggle-comprados" onchange="renderCompra()" style="accent-color:var(--accent)">
+          Mostrar comprados
+        </label>
+        <span class="chip" id="count-compra" style="margin-left:auto">0</span>
+      </div>
+    </div>
+    <div id="list-compra"></div>
+    <button class="btn-add-recipe" style="width:100%;margin-top:8px" onclick="openAddProducto()">+ Añadir producto</button>
+  </div>
 </main>
 
-<!-- Add/Edit recipe modal -->
+<!-- Add/Edit product modal -->
+<div class="modal-overlay" id="productoModal" onclick="closeEditModal(event)">
+  <div class="modal-sheet">
+    <div class="modal-title" id="productoModalTitle">+ Nuevo producto</div>
+    <input type="text" id="prod-name" placeholder="Nombre del producto..." />
+    <div class="field-label">Pasillo</div>
+    <select id="prod-pasillo" style="width:100%;border:1.5px solid var(--border);border-radius:9px;padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:0.88rem;background:var(--bg);outline:none;color:var(--text);margin-bottom:10px">
+      <option value="">Selecciona pasillo...</option>
+    </select>
+    <input type="text" id="prod-cantidad" placeholder="Cantidad (opcional, ej: x2, 1kg...)" />
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <input type="checkbox" id="prod-basico" style="accent-color:var(--accent);width:16px;height:16px">
+      <label for="prod-basico" style="font-size:0.88rem;cursor:pointer">⭐ Básico (revisar siempre)</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('productoModal')">Cancelar</button>
+      <button class="btn-primary" style="flex:1" onclick="saveProducto()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+
 <div class="modal-overlay" id="editModal" onclick="closeEditModal(event)">
   <div class="modal-sheet" style="max-height:90vh;overflow-y:auto">
     <div class="modal-title" id="editModalTitle">✏️ Editar receta</div>
@@ -1140,7 +1306,9 @@ function showView(view, btn) {
   btn.classList.add('active');
   document.getElementById('view-week').style.display = view === 'week' ? 'block' : 'none';
   document.getElementById('view-suggestions').style.display = view === 'suggestions' ? 'block' : 'none';
+  document.getElementById('view-compra').style.display = view === 'compra' ? 'block' : 'none';
   if (view === 'suggestions') renderSuggestions();
+  if (view === 'compra') renderCompra();
 }
 
 function changeWeek(dir) {
@@ -1705,7 +1873,232 @@ function restoreJSON(event) {
   event.target.value = '';
 }
 
-// ─── INIT ─────────────────────────────────────────────────
+// ─── SHOPPING LIST ────────────────────────────────────────
+
+const DUPLICADOS = ['Mostaza','Azúcar','Leche de coco','Té verde','Fregona','Maíz','Judías verdes','Remolacha','Espinacas congeladas','Cus cús','Miel'];
+
+const DEFAULT_COMPRA = {
+  pasillos: [
+    'Productos de limpieza','Higiene','Patatas y aceitunas','Bebidas',
+    'Quesos y preparados','Pasta botes garbanzos','Verdulería',
+    'Congelados','Yogures','Panadería','Lácteos'
+  ],
+  productos: [
+    // Productos de limpieza
+    ...['Abrillantador lavavajillas','Aceitunas limón','Aceitunas negras sin hueso','Alcaparras','Antigrasa','Bicarbonato','Bolsas blancas','Botella pequeña de agua','Caja de pañuelos','Carga mosquitos','Desatascador','Desinfectante','Detergente lavavajillas','Detergente limpiar lavadora','Detergente limpiar lavavajillas','Detergente para lavar platos a mano','Detergente ropa','Detergente wc','Escobilla','Estropajo','Estropajo baño','Estropajo hierro','Fregona','Guantes de limpiar','Lejía','Limpiador maderas','Limpiador vitrocerámica','Limpiar cristales','Papel de aluminio','Papel de cocina','Pañuelos','Pinzas','Plástico protector bajo lavabos','Polvo pies','Pulsara anti bichos','Quitamanchas','Recarga antimosquitos','Sal lavavajillas','Servilletas','Tápers básicos','Toallitas hidroalcohólicas','Trapos','Vinagre de limpiar'].map((n,i) => ({id:`p_lim_${i}`, name:n, pasillo:'Productos de limpieza', comprado:true, basico: ['Papel higiénico','Papel de cocina','Papel de aluminio','Estropajo'].includes(n), cantidad:'', duplicado: DUPLICADOS.includes(n)})),
+    {id:'p_lim_ph', name:'Papel higiénico', pasillo:'Productos de limpieza', comprado:true, basico:true, cantidad:'', duplicado:false},
+
+    // Higiene
+    ...['Acondicionador instantáneo','Bastoncillos','Bolsas amarillas','Cepillo de dientes','Cepillo de uñas','Champú','Compresas','Crema aloe vera','Crema hidratante','Crema sol','Crema solar peque','Desodorante','Enjuage bucal','Esparadrapo','Fregona','Gasas','Gel','Jabón manos','Limpieza armadura','Maquinillas','Pasta de dientes','Perfume','Polvo pies','Protege slip','Suavizante pelo','Vaselina frambuesa'].map((n,i) => ({id:`p_hig_${i}`, name:n, pasillo:'Higiene', comprado:true, basico:false, cantidad:'', duplicado: DUPLICADOS.includes(n)})),
+
+    // Patatas y aceitunas
+    ...['Almendras','Anacardos','Avellanas','Cacahuetes','Chochos','Crema de cacahuete','Melocotón en almíbar','Nueces','Palomitas','Patatas fritas','Pistachos','Semillas','Sopa de miso','Tortillas de maíz'].map((n,i) => ({id:`p_pat_${i}`, name:n, pasillo:'Patatas y aceitunas', comprado:true, basico:false, cantidad:'', duplicado: DUPLICADOS.includes(n)})),
+
+    // Bebidas
+    ...['Botella pequeña agua','Hamburguesas','Masa de empanada','Tortilla de patatas'].map((n,i) => ({id:`p_beb_${i}`, name:n, pasillo:'Bebidas', comprado:true, basico:false, cantidad:'', duplicado: DUPLICADOS.includes(n)})),
+    {id:'p_beb_tofu', name:'Tofu', pasillo:'Bebidas', comprado:true, basico:true, cantidad:'x1', duplicado:false},
+    {id:'p_beb_soja', name:'Filetes de soja', pasillo:'Bebidas', comprado:true, basico:true, cantidad:'x1', duplicado:false},
+    {id:'p_beb_gaz', name:'Gazpacho', pasillo:'Bebidas', comprado:true, basico:true, cantidad:'', duplicado:false},
+    {id:'p_beb_hum', name:'Hummus', pasillo:'Bebidas', comprado:true, basico:true, cantidad:'x2', duplicado:false},
+
+    // Quesos y preparados
+    ...['Aliño limón','Burrata','Croquetas del Alcampo','Embutido vegetal','Gorgonzola','Havarti','Mahonesa','Masa empanada','Masa pizza','Pan rallado','Pasta fresca','Pesto','Queso','Queso azul','Queso Burgos','Queso de untar','Queso Havarti','Queso pasta','Queso pizza','Salchichas','Salsa de soja','Salsa pasta','Salsa soja','Seitán','Tranchetes','Vinagre de módena'].map((n,i) => ({id:`p_que_${i}`, name:n, pasillo:'Quesos y preparados', comprado:true, basico:false, cantidad:'', duplicado: DUPLICADOS.includes(n)})),
+    {id:'p_que_heu', name:'Heura', pasillo:'Quesos y preparados', comprado:true, basico:true, cantidad:'', duplicado:false},
+    {id:'p_que_req', name:'Requesón', pasillo:'Quesos y preparados', comprado:true, basico:true, cantidad:'x2', duplicado:false},
+
+    // Pasta botes garbanzos
+    ...['Aceite','Alcachofas en aceite','Alubias','Alubias pintas','Arroz no se pega','Bote brotes soja','Comino','Curry','Cus cús','Espárragos blancos','Fideos arroz','Fideos medianos','Guisantes','Habitas','Harina','Judías verdes','Leche de coco','Lentejas chicas','Lentejas en bote','Levadura bizcocho','Levadura nutricional','Maicena','Maíz lata','Macarrones','Menestra en bote','Mostaza','Nata de cocinar','Orégano','Perejil en bote','Pimentón','Quinoa','Remolacha','Sal yodada','Soja texturizada','Tallarines','Tomate frito','Tomates secos','Verduras en bote'].map((n,i) => ({id:`p_pas_${i}`, name:n, pasillo:'Pasta botes garbanzos', comprado:true, basico:false, cantidad:'', duplicado: DUPLICADOS.includes(n)})),
+    {id:'p_pas_gar', name:'Garbanzos', pasillo:'Pasta botes garbanzos', comprado:true, basico:true, cantidad:'', duplicado:false},
+
+    // Verdulería
+    ...['Acelgas','Aguacate','Ajo','Albahaca','Alcachofas','Apio','Batatas','Berenjena','Boniato','Brócoli','Calabacín','Calabaza','Cebolla','Cebolla dulce','Cebolla morada','Cerezas','Champiñones','Chocolate','Cilantro','Coliflor','Ensalada','Espárragos','Espinacas','Espinacas congeladas','Jengibre','Judías verdes','Lechuga','Lima','Limón','Maíz','Mandarinas','Mango','Manzanas','Melocotón','Melón','Miel','Naranjas','Patatas pequeñas','Perejil','Pimiento rojo','Pimiento verde','Plátanos','Preparado cocido','Puerros','Remolacha','Repollo','Sandía','Setas','Tomates cherry','Zanahorias','Zumo'].map((n,i) => ({id:`p_ver_${i}`, name:n, pasillo:'Verdulería', comprado:true, basico:false, cantidad:'', duplicado: DUPLICADOS.includes(n)})),
+    {id:'p_ver_pep', name:'Pepino', pasillo:'Verdulería', comprado:true, basico:true, cantidad:'', duplicado:false},
+    {id:'p_ver_tom', name:'Tomates', pasillo:'Verdulería', comprado:true, basico:true, cantidad:'', duplicado:false},
+    {id:'p_ver_ruc', name:'Rúcula', pasillo:'Verdulería', comprado:true, basico:true, cantidad:'', duplicado:false},
+    {id:'p_ver_fru', name:'Fruta', pasillo:'Verdulería', comprado:true, basico:true, cantidad:'', duplicado:false},
+    {id:'p_ver_ver', name:'Verdura', pasillo:'Verdulería', comprado:true, basico:true, cantidad:'', duplicado:false},
+
+    // Congelados
+    ...['Aceitunas Aragón','Aceitunas negras individuales','Arroz con verduras congelado','Azúcar','Bases pizza','Bebida verduras','Cervezas Victoria Málaga para Rubén','Croquetas','Cus cús','Edamame','Espinacas congeladas','Frizzante','Godello','Latas cerveza roja','Mostaza','Patatas congeladas','Pizza','Sal','Salsa César','Salsa teriyaki','Tahini - pasta sésamo','Té verde','Tinto de verano con limón','Vinagre de manzana','Vino de cocinar','Vino tinto','Wakame'].map((n,i) => ({id:`p_con_${i}`, name:n, pasillo:'Congelados', comprado:true, basico:false, cantidad:'', duplicado: DUPLICADOS.includes(n)})),
+
+    // Yogures
+    ...['Aceitunas individuales','Aceitunas negras de Aragón','Arroz con leche','Flan','Magdalenas','Mantequilla','Margarina','Mermelada','Picos','Regañás'].map((n,i) => ({id:`p_yog_${i}`, name:n, pasillo:'Yogures', comprado:true, basico:false, cantidad:'', duplicado: DUPLICADOS.includes(n)})),
+    {id:'p_yog_yog', name:'Yogur natural', pasillo:'Yogures', comprado:true, basico:true, cantidad:'', duplicado:false},
+
+    // Panadería
+    ...['Azúcar','Cacao puro','Café','Cereales','Crackers','Galletas','Leche de coco','Miel','Mostaza','Nesquik','Nocilla','Pan de cereales','Pan de hamburguesas','Pan molde','Pan perritos','Pan sándwich','Pan tipo chapata','Pan tostado','Pan vienés','Té verde'].map((n,i) => ({id:`p_pan_${i}`, name:n, pasillo:'Panadería', comprado:true, basico:false, cantidad:'', duplicado: DUPLICADOS.includes(n)})),
+    {id:'p_pan_hue', name:'Huevos', pasillo:'Panadería', comprado:true, basico:true, cantidad:'6', duplicado:false},
+    {id:'p_pan_pan', name:'Pan', pasillo:'Panadería', comprado:true, basico:true, cantidad:'', duplicado:false},
+
+    // Lácteos
+    {id:'p_lac_lec', name:'Leche', pasillo:'Lácteos', comprado:true, basico:true, cantidad:'1', duplicado:false},
+  ]
+};
+
+let compraFiltro = 'todos';
+let editingProductoId = null;
+
+function getCompra() {
+  if (!suggestions.compra || !suggestions.compra.pasillos) {
+    suggestions.compra = JSON.parse(JSON.stringify(DEFAULT_COMPRA));
+  }
+  return suggestions.compra;
+}
+
+function setCompraFiltro(filtro, btn) {
+  compraFiltro = filtro;
+  document.querySelectorAll('.compra-toolbar .fpill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCompra();
+}
+
+function renderCompra() {
+  const compra = getCompra();
+  const mostrarComprados = document.getElementById('toggle-comprados')?.checked;
+  const list = document.getElementById('list-compra');
+  const countEl = document.getElementById('count-compra');
+  list.innerHTML = '';
+
+  let totalPorComprar = 0;
+
+  compra.pasillos.forEach(pasillo => {
+    let productos = compra.productos.filter(p => p.pasillo === pasillo);
+
+    // Apply filtro
+    if (compraFiltro === 'comprar') productos = productos.filter(p => !p.comprado);
+    if (compraFiltro === 'basicos') productos = productos.filter(p => p.basico);
+
+    // Hide comprados unless toggled
+    const visible = mostrarComprados ? productos : productos.filter(p => !p.comprado);
+    const porComprar = productos.filter(p => !p.comprado).length;
+    totalPorComprar += compra.productos.filter(p => p.pasillo === pasillo && !p.comprado).length;
+
+    if (!visible.length) return;
+
+    const section = document.createElement('div');
+    section.className = 'pasillo-section';
+
+    const header = document.createElement('div');
+    header.className = 'pasillo-header';
+    header.innerHTML = `
+      <span class="pasillo-name">${pasillo}</span>
+      <span class="pasillo-count">${porComprar > 0 ? `${porComprar} por comprar` : '✓ todo'}</span>
+    `;
+    header.onclick = () => {
+      const items = section.querySelector('.pasillo-items');
+      items.style.display = items.style.display === 'none' ? 'block' : 'none';
+    };
+    section.appendChild(header);
+
+    const items = document.createElement('div');
+    items.className = 'pasillo-items';
+
+    // Sort: por comprar primero, luego alfabético
+    visible.sort((a,b) => {
+      if (a.comprado !== b.comprado) return a.comprado ? 1 : -1;
+      return a.name.localeCompare(b.name, 'es');
+    });
+
+    visible.forEach(prod => {
+      const item = document.createElement('div');
+      item.className = 'producto-item' + (prod.comprado ? ' comprado' : '');
+      item.innerHTML = `
+        <div class="producto-check" onclick="toggleProducto('${prod.id}')">${prod.comprado ? '✓' : ''}</div>
+        <div class="producto-info">
+          <div class="producto-name">${prod.name}</div>
+          <div class="producto-meta">
+            ${prod.cantidad ? `<span class="producto-cantidad">${prod.cantidad}</span>` : ''}
+            ${prod.basico ? `<span class="producto-basico">⭐ básico</span>` : ''}
+            ${prod.duplicado ? `<span class="producto-duplicado">🔄 verificar pasillo</span>` : ''}
+          </div>
+        </div>
+        <button class="prod-edit-btn" onclick="openEditProducto('${prod.id}')">✏️</button>
+      `;
+      items.appendChild(item);
+    });
+
+    section.appendChild(items);
+    list.appendChild(section);
+  });
+
+  countEl.textContent = totalPorComprar > 0 ? `${totalPorComprar} por comprar` : '✅ todo comprado';
+  if (totalPorComprar === 0) countEl.style.background = 'var(--accent2-light)';
+  else countEl.style.background = '';
+
+  // Populate pasillo select in modal
+  const sel = document.getElementById('prod-pasillo');
+  if (sel && sel.options.length <= 1) {
+    compra.pasillos.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p; opt.textContent = p;
+      sel.appendChild(opt);
+    });
+  }
+}
+
+function toggleProducto(id) {
+  const prod = getCompra().productos.find(p => p.id === id);
+  if (!prod) return;
+  prod.comprado = !prod.comprado;
+  save();
+  renderCompra();
+}
+
+function openAddProducto() {
+  editingProductoId = null;
+  document.getElementById('productoModalTitle').textContent = '+ Nuevo producto';
+  document.getElementById('prod-name').value = '';
+  document.getElementById('prod-cantidad').value = '';
+  document.getElementById('prod-basico').checked = false;
+  document.getElementById('prod-pasillo').value = '';
+  // populate pasillos
+  const sel = document.getElementById('prod-pasillo');
+  sel.innerHTML = '<option value="">Selecciona pasillo...</option>';
+  getCompra().pasillos.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p; opt.textContent = p;
+    sel.appendChild(opt);
+  });
+  document.getElementById('productoModal').classList.add('open');
+}
+
+function openEditProducto(id) {
+  const prod = getCompra().productos.find(p => p.id === id);
+  if (!prod) return;
+  editingProductoId = id;
+  document.getElementById('productoModalTitle').textContent = '✏️ Editar producto';
+  document.getElementById('prod-name').value = prod.name;
+  document.getElementById('prod-cantidad').value = prod.cantidad || '';
+  document.getElementById('prod-basico').checked = prod.basico || false;
+  const sel = document.getElementById('prod-pasillo');
+  sel.innerHTML = '<option value="">Selecciona pasillo...</option>';
+  getCompra().pasillos.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p; opt.textContent = p;
+    if (p === prod.pasillo) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  document.getElementById('productoModal').classList.add('open');
+}
+
+function saveProducto() {
+  const name = document.getElementById('prod-name').value.trim();
+  const pasillo = document.getElementById('prod-pasillo').value;
+  const cantidad = document.getElementById('prod-cantidad').value.trim();
+  const basico = document.getElementById('prod-basico').checked;
+  if (!name || !pasillo) return;
+
+  const compra = getCompra();
+  if (editingProductoId) {
+    const prod = compra.productos.find(p => p.id === editingProductoId);
+    if (prod) Object.assign(prod, { name, pasillo, cantidad, basico });
+  } else {
+    compra.productos.push({ id: 'prod_' + Date.now(), name, pasillo, cantidad, basico, comprado: false, duplicado: false });
+  }
+  save();
+  closeModal('productoModal');
+  renderCompra();
+}
 setupFilters();
 setupTagSelectors();
 init();
