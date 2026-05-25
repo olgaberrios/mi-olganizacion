@@ -1003,9 +1003,13 @@
       <option value="">Selecciona pasillo...</option>
     </select>
     <input type="text" id="prod-cantidad" placeholder="Cantidad (opcional, ej: x2, 1kg...)" />
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
       <input type="checkbox" id="prod-basico" style="accent-color:var(--accent);width:16px;height:16px">
       <label for="prod-basico" style="font-size:0.88rem;cursor:pointer">⭐ Básico (revisar siempre)</label>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <input type="checkbox" id="prod-duplicado" style="accent-color:var(--accent);width:16px;height:16px">
+      <label for="prod-duplicado" style="font-size:0.88rem;cursor:pointer">🔄 Verificar pasillo</label>
     </div>
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal('productoModal')">Cancelar</button>
@@ -2050,6 +2054,7 @@ function openAddProducto() {
   document.getElementById('prod-name').value = '';
   document.getElementById('prod-cantidad').value = '';
   document.getElementById('prod-basico').checked = false;
+  document.getElementById('prod-duplicado').checked = false;
   document.getElementById('prod-pasillo').value = '';
   // populate pasillos
   const sel = document.getElementById('prod-pasillo');
@@ -2070,6 +2075,7 @@ function openEditProducto(id) {
   document.getElementById('prod-name').value = prod.name;
   document.getElementById('prod-cantidad').value = prod.cantidad || '';
   document.getElementById('prod-basico').checked = prod.basico || false;
+  document.getElementById('prod-duplicado').checked = prod.duplicado || false;
   const sel = document.getElementById('prod-pasillo');
   sel.innerHTML = '<option value="">Selecciona pasillo...</option>';
   getCompra().pasillos.forEach(p => {
@@ -2086,12 +2092,13 @@ function saveProducto() {
   const pasillo = document.getElementById('prod-pasillo').value;
   const cantidad = document.getElementById('prod-cantidad').value.trim();
   const basico = document.getElementById('prod-basico').checked;
+  const duplicado = document.getElementById('prod-duplicado').checked;
   if (!name || !pasillo) return;
 
   const compra = getCompra();
   if (editingProductoId) {
     const prod = compra.productos.find(p => p.id === editingProductoId);
-    if (prod) Object.assign(prod, { name, pasillo, cantidad, basico });
+    if (prod) Object.assign(prod, { name, pasillo, cantidad, basico, duplicado });
   } else {
     compra.productos.push({ id: 'prod_' + Date.now(), name, pasillo, cantidad, basico, comprado: false, duplicado: false });
   }
