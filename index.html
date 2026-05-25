@@ -979,6 +979,7 @@
         <button class="fpill active" id="filtro-todos" onclick="setCompraFiltro('todos',this)">Todos</button>
         <button class="fpill" id="filtro-comprar" onclick="setCompraFiltro('comprar',this)">🛒 Por comprar</button>
         <button class="fpill" id="filtro-basicos" onclick="setCompraFiltro('basicos',this)">⭐ Básicos</button>
+        <button class="fpill" id="filtro-verificar" onclick="setCompraFiltro('verificar',this)">🔄 Verificar</button>
       </div>
       <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
         <label style="font-size:0.8rem;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer">
@@ -1013,6 +1014,7 @@
     </div>
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal('productoModal')">Cancelar</button>
+      <button class="btn-secondary" style="color:#c0392b;border-color:#c0392b" onclick="deleteProducto()" id="btn-delete-producto">🗑 Borrar</button>
       <button class="btn-primary" style="flex:1" onclick="saveProducto()">Guardar</button>
     </div>
   </div>
@@ -1971,6 +1973,7 @@ function renderCompra() {
     // Apply filtro
     if (compraFiltro === 'comprar') productos = productos.filter(p => !p.comprado);
     if (compraFiltro === 'basicos') productos = productos.filter(p => p.basico);
+    if (compraFiltro === 'verificar') productos = productos.filter(p => p.duplicado);
 
     // Hide comprados unless toggled
     const visible = mostrarComprados ? productos : productos.filter(p => !p.comprado);
@@ -2056,7 +2059,7 @@ function openAddProducto() {
   document.getElementById('prod-basico').checked = false;
   document.getElementById('prod-duplicado').checked = false;
   document.getElementById('prod-pasillo').value = '';
-  // populate pasillos
+  document.getElementById('btn-delete-producto').style.display = 'none';
   const sel = document.getElementById('prod-pasillo');
   sel.innerHTML = '<option value="">Selecciona pasillo...</option>';
   getCompra().pasillos.forEach(p => {
@@ -2076,6 +2079,7 @@ function openEditProducto(id) {
   document.getElementById('prod-cantidad').value = prod.cantidad || '';
   document.getElementById('prod-basico').checked = prod.basico || false;
   document.getElementById('prod-duplicado').checked = prod.duplicado || false;
+  document.getElementById('btn-delete-producto').style.display = 'inline-flex';
   const sel = document.getElementById('prod-pasillo');
   sel.innerHTML = '<option value="">Selecciona pasillo...</option>';
   getCompra().pasillos.forEach(p => {
@@ -2085,6 +2089,15 @@ function openEditProducto(id) {
     sel.appendChild(opt);
   });
   document.getElementById('productoModal').classList.add('open');
+}
+
+function deleteProducto() {
+  if (!editingProductoId) return;
+  if (!confirm('¿Eliminar este producto?')) return;
+  getCompra().productos = getCompra().productos.filter(p => p.id !== editingProductoId);
+  save();
+  closeModal('productoModal');
+  renderCompra();
 }
 
 function saveProducto() {
