@@ -988,6 +988,12 @@
         <button class="fpill" id="filtro-basicos" onclick="setCompraFiltro('basicos',this)">⭐ Básicos</button>
         <button class="fpill" id="filtro-verificar" onclick="setCompraFiltro('verificar',this)">🔄 Verificar</button>
       </div>
+      <div style="margin-top:8px;position:relative">
+        <input type="search" id="compra-search" placeholder="🔍 Buscar producto..."
+          oninput="renderCompra()"
+          style="width:100%;border:1.5px solid var(--border);border-radius:9px;padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:0.88rem;background:var(--bg);outline:none;color:var(--text);transition:border-color 0.15s"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'" />
+      </div>
       <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
         <label style="font-size:0.8rem;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer">
           <input type="checkbox" id="toggle-comprados" onchange="renderCompra()" style="accent-color:var(--accent)">
@@ -1968,11 +1974,23 @@ function setCompraFiltro(filtro, btn) {
 function renderCompra() {
   const compra = getCompra();
   const mostrarComprados = document.getElementById('toggle-comprados')?.checked;
+  const searchQuery = (document.getElementById('compra-search')?.value || '').trim().toLowerCase();
   const list = document.getElementById('list-compra');
   const countEl = document.getElementById('count-compra');
-  list.innerHTML = '';
 
+  // Remember which pasillos are currently open before re-rendering
+  const openPasillos = new Set();
+  list.querySelectorAll('.pasillo-section').forEach(sec => {
+    const itemsEl = sec.querySelector('.pasillo-items');
+    const nameEl = sec.querySelector('.pasillo-name');
+    if (nameEl && itemsEl && itemsEl.style.display !== 'none') {
+      openPasillos.add(nameEl.textContent);
+    }
+  });
+
+  list.innerHTML = '';
   let totalPorComprar = 0;
+  const isSearching = searchQuery.length > 0;
 
   compra.pasillos.forEach(pasillo => {
     let productos = compra.productos.filter(p => p.pasillo === pasillo);
@@ -1982,15 +2000,22 @@ function renderCompra() {
     if (compraFiltro === 'basicos') productos = productos.filter(p => p.basico);
     if (compraFiltro === 'verificar') productos = productos.filter(p => p.duplicado);
 
-    // Hide comprados unless toggled
-    const visible = mostrarComprados ? productos : productos.filter(p => !p.comprado);
-    const porComprar = productos.filter(p => !p.comprado).length;
-    totalPorComprar += compra.productos.filter(p => p.pasillo === pasillo && !p.comprado).length;
+    // Apply search
+    if (isSearching) productos = productos.filter(p => p.name.toLowerCase().includes(searchQuery));
+
+    // Hide comprados unless toggled (skip when searching so you can find anything)
+    const visible = (mostrarComprados || isSearching) ? productos : productos.filter(p => !p.comprado);
+    const porComprar = compra.productos.filter(p => p.pasillo === pasillo && !p.comprado).length;
+    totalPorComprar += porComprar;
 
     if (!visible.length) return;
 
     const section = document.createElement('div');
     section.className = 'pasillo-section';
+
+    // Determine open state: open if was open before, or if searching, or first render (nothing was open yet)
+    const wasOpen = openPasillos.size === 0 ? false : openPasillos.has(pasillo);
+    const shouldBeOpen = isSearching || wasOpen;
 
     const header = document.createElement('div');
     header.className = 'pasillo-header';
@@ -1998,14 +2023,16 @@ function renderCompra() {
       <span class="pasillo-name">${pasillo}</span>
       <span class="pasillo-count">${porComprar > 0 ? `${porComprar} por comprar` : '✓ todo'}</span>
     `;
-    header.onclick = () => {
-      const items = section.querySelector('.pasillo-items');
-      items.style.display = items.style.display === 'none' ? 'block' : 'none';
-    };
-    section.appendChild(header);
 
     const items = document.createElement('div');
     items.className = 'pasillo-items';
+    items.style.display = shouldBeOpen ? 'block' : 'none';
+
+    header.onclick = () => {
+      items.style.display = items.style.display === 'none' ? 'block' : 'none';
+    };
+
+    section.appendChild(header);
 
     // Sort: por comprar primero, luego alfabético
     visible.sort((a,b) => {
@@ -2016,10 +2043,14 @@ function renderCompra() {
     visible.forEach(prod => {
       const item = document.createElement('div');
       item.className = 'producto-item' + (prod.comprado ? ' comprado' : '');
+      // Highlight search match
+      const displayName = isSearching
+        ? prod.name.replace(new RegExp(`(${searchQuery})`, 'gi'), '<mark style="background:#ffe4c4;border-radius:3px;padding:0 2px">$1</mark>')
+        : prod.name;
       item.innerHTML = `
         <div class="producto-check" onclick="toggleProducto('${prod.id}')">${prod.comprado ? '✓' : ''}</div>
         <div class="producto-info">
-          <div class="producto-name">${prod.name}</div>
+          <div class="producto-name">${displayName}</div>
           <div class="producto-meta">
             ${prod.cantidad ? `<span class="producto-cantidad">${prod.cantidad}</span>` : ''}
             ${prod.basico ? `<span class="producto-basico">⭐ básico</span>` : ''}
@@ -2036,8 +2067,7 @@ function renderCompra() {
   });
 
   countEl.textContent = totalPorComprar > 0 ? `${totalPorComprar} por comprar` : '✅ todo comprado';
-  if (totalPorComprar === 0) countEl.style.background = 'var(--accent2-light)';
-  else countEl.style.background = '';
+  countEl.style.background = totalPorComprar === 0 ? 'var(--accent2-light)' : '';
 
   // Populate pasillo select in modal
   const sel = document.getElementById('prod-pasillo');
