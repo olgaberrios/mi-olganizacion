@@ -1315,7 +1315,7 @@ function dateKey(d) {
 }
 
 function getDayData(key) {
-  if (!data[key]) data[key] = { done: false, exercises: {}, comida: '', cena: '', comidaLink: '', cenaLink: '' };
+  if (!data[key]) data[key] = { done: false, exercises: {}, comida: '', cena: '', comidaLink: '', cenaLink: '', notas: '' };
   return data[key];
 }
 
@@ -1410,6 +1410,9 @@ function renderWeek() {
             oninput="saveField('${key}','cenaLink',this.value)" />
           ${dayData.cenaLink ? `<a href="${dayData.cenaLink}" target="_blank">🔗</a>` : '<span style="width:20px"></span>'}
         </div>
+        <div class="field-label">📝 Notas <span style="text-transform:none;font-weight:400;opacity:0.7">(opcional — peso, sensaciones, chuches...)</span></div>
+        <textarea class="text-field" rows="2" placeholder="Cualquier cosa que quieras anotar hoy..."
+          oninput="saveField('${key}','notas',this.value)">${dayData.notas||''}</textarea>
       </div>
     `;
 
@@ -1558,6 +1561,18 @@ function updatePreview(key, dayData) {
 
   makeFoodRow('☀️', dayData.comida, dayData.comidaLink);
   makeFoodRow('🌙', dayData.cena, dayData.cenaLink);
+
+  if (dayData.notas) {
+    const pill = document.createElement('div');
+    pill.className = 'preview-pill food';
+    pill.style.background = '#fff3e0';
+    pill.style.color = '#8a5a00';
+    pill.innerHTML = `<div class="preview-food-row">
+      <span class="preview-food-label">📝</span>
+      <span class="preview-food-text">${dayData.notas}</span>
+    </div>`;
+    preview.appendChild(pill);
+  }
 }
 
 // ─── AUTOCOMPLETE ─────────────────────────────────────────
@@ -1813,6 +1828,7 @@ function openExport(mode) {
     if (exChecked.length) text += `• Ejercicio: ${exChecked.join(', ')}\n`;
     if (d.comida) text += `• Comida: ${d.comida}${d.comidaLink ? ' ('+d.comidaLink+')' : ''}\n`;
     if (d.cena) text += `• Cena: ${d.cena}${d.cenaLink ? ' ('+d.cenaLink+')' : ''}\n`;
+    if (d.notas) text += `• Notas: ${d.notas}\n`;
   });
 
   if (mode === 'all') {
