@@ -985,6 +985,7 @@
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="fpill active" id="filtro-todos" onclick="setCompraFiltro('todos',this)">Todos</button>
         <button class="fpill" id="filtro-comprar" onclick="setCompraFiltro('comprar',this)">🛒 Por comprar</button>
+        <button class="fpill" id="filtro-comprados" onclick="setCompraFiltro('comprados',this)">✓ Comprados</button>
         <button class="fpill" id="filtro-basicos" onclick="setCompraFiltro('basicos',this)">⭐ Básicos</button>
         <button class="fpill" id="filtro-verificar" onclick="setCompraFiltro('verificar',this)">🔄 Verificar</button>
       </div>
@@ -995,10 +996,8 @@
           onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'" />
       </div>
       <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
-        <label style="font-size:0.8rem;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer">
-          <input type="checkbox" id="toggle-comprados" onchange="renderCompra()" style="accent-color:var(--accent)">
-          Mostrar comprados
-        </label>
+        <button class="fpill" onclick="desplegarTodo(true)" style="font-size:0.75rem">↕ Desplegar todo</button>
+        <button class="fpill" onclick="desplegarTodo(false)" style="font-size:0.75rem">↕ Replegar todo</button>
         <span class="chip" id="count-compra" style="margin-left:auto">0</span>
       </div>
     </div>
@@ -1987,9 +1986,14 @@ function setCompraFiltro(filtro, btn) {
   renderCompra();
 }
 
+function desplegarTodo(abrir) {
+  document.querySelectorAll('#list-compra .pasillo-items').forEach(el => {
+    el.style.display = abrir ? 'block' : 'none';
+  });
+}
+
 function renderCompra() {
   const compra = getCompra();
-  const mostrarComprados = document.getElementById('toggle-comprados')?.checked;
   const searchQuery = (document.getElementById('compra-search')?.value || '').trim().toLowerCase();
   const list = document.getElementById('list-compra');
   const countEl = document.getElementById('count-compra');
@@ -2013,23 +2017,26 @@ function renderCompra() {
 
     // Apply filtro
     if (compraFiltro === 'comprar') productos = productos.filter(p => !p.comprado);
+    if (compraFiltro === 'comprados') productos = productos.filter(p => p.comprado);
     if (compraFiltro === 'basicos') productos = productos.filter(p => p.basico);
     if (compraFiltro === 'verificar') productos = productos.filter(p => p.duplicado);
 
-    // Apply search
-    if (isSearching) productos = productos.filter(p => p.name.toLowerCase().includes(searchQuery));
+    // En modo Todos, ocultar comprados salvo que se esté buscando
+    if (compraFiltro === 'todos' && !isSearching) {
+      productos = productos.filter(p => !p.comprado);
+    }
 
-    // Hide comprados unless toggled (skip when searching so you can find anything)
-    const visible = (mostrarComprados || isSearching) ? productos : productos.filter(p => !p.comprado);
+    // Apply search (sobre lo que quede después del filtro)
+    if (isSearching) productos = compra.productos.filter(p => p.pasillo === pasillo && p.name.toLowerCase().includes(searchQuery));
+
     const porComprar = compra.productos.filter(p => p.pasillo === pasillo && !p.comprado).length;
     totalPorComprar += porComprar;
 
-    if (!visible.length) return;
+    if (!productos.length) return;
 
     const section = document.createElement('div');
     section.className = 'pasillo-section';
 
-    // Determine open state: open if was open before, or if searching, or first render (nothing was open yet)
     const wasOpen = openPasillos.size === 0 ? false : openPasillos.has(pasillo);
     const shouldBeOpen = isSearching || wasOpen;
 
@@ -2050,16 +2057,14 @@ function renderCompra() {
 
     section.appendChild(header);
 
-    // Sort: por comprar primero, luego alfabético
-    visible.sort((a,b) => {
+    productos.sort((a,b) => {
       if (a.comprado !== b.comprado) return a.comprado ? 1 : -1;
       return a.name.localeCompare(b.name, 'es');
     });
 
-    visible.forEach(prod => {
+    productos.forEach(prod => {
       const item = document.createElement('div');
       item.className = 'producto-item' + (prod.comprado ? ' comprado' : '');
-      // Highlight search match
       const displayName = isSearching
         ? prod.name.replace(new RegExp(`(${searchQuery})`, 'gi'), '<mark style="background:#ffe4c4;border-radius:3px;padding:0 2px">$1</mark>')
         : prod.name;
@@ -2085,7 +2090,6 @@ function renderCompra() {
   countEl.textContent = totalPorComprar > 0 ? `${totalPorComprar} por comprar` : '✅ todo comprado';
   countEl.style.background = totalPorComprar === 0 ? 'var(--accent2-light)' : '';
 
-  // Populate pasillo select in modal
   const sel = document.getElementById('prod-pasillo');
   if (sel && sel.options.length <= 1) {
     compra.pasillos.forEach(p => {
