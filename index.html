@@ -2015,16 +2015,11 @@ function renderCompra() {
   compra.pasillos.forEach(pasillo => {
     let productos = compra.productos.filter(p => p.pasillo === pasillo);
 
-    // Apply filtro
+    // En modo Todos, mostrar todo. En otros filtros, aplicar el filtro correspondiente
     if (compraFiltro === 'comprar') productos = productos.filter(p => !p.comprado);
     if (compraFiltro === 'comprados') productos = productos.filter(p => p.comprado);
     if (compraFiltro === 'basicos') productos = productos.filter(p => p.basico);
     if (compraFiltro === 'verificar') productos = productos.filter(p => p.duplicado);
-
-    // En modo Todos, ocultar comprados salvo que se esté buscando
-    if (compraFiltro === 'todos' && !isSearching) {
-      productos = productos.filter(p => !p.comprado);
-    }
 
     // Apply search (sobre lo que quede después del filtro)
     if (isSearching) productos = compra.productos.filter(p => p.pasillo === pasillo && p.name.toLowerCase().includes(searchQuery));
