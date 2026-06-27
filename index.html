@@ -971,6 +971,13 @@
       </div>
     </div>
 
+    <div style="margin:10px 0 4px;position:relative">
+      <input type="search" id="receta-search" placeholder="🔍 Buscar receta..."
+        oninput="renderSuggestions()"
+        style="width:100%;border:1.5px solid var(--border);border-radius:9px;padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:0.88rem;background:var(--bg);outline:none;color:var(--text);transition:border-color 0.15s"
+        onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'" />
+    </div>
+
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <span class="chip" id="count-recetas">0 recetas</span>
       <button class="btn-add-recipe" onclick="openAddRecipe()">+ Añadir receta</button>
@@ -1643,6 +1650,9 @@ function getRecipes() {
 
 function renderSuggestions() {
   const recipes = getRecipes();
+  const searchQuery = (document.getElementById('receta-search')?.value || '').trim().toLowerCase();
+  const isSearching = searchQuery.length > 0;
+
   let filtered = recipes.filter(r => {
     if (activeFilters.estacion && r.estacion !== activeFilters.estacion) return false;
     if (activeFilters.proteina && r.proteina !== activeFilters.proteina) return false;
@@ -1650,11 +1660,12 @@ function renderSuggestions() {
     if (activeFilters.estado === 'probada' && r.estado !== 'probada') return false;
     if (activeFilters.estado === 'favorita' && r.estado !== 'favorita') return false;
     if (activeFilters.estado === 'descongelar' && r.estado !== 'descongelar') return false;
+    if (isSearching && !r.name.toLowerCase().includes(searchQuery)) return false;
     return true;
   });
 
-  // Sort alphabetically
-  filtered.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  // Sort by last activity (updatedAt desc), fallback to id (creation order)
+  filtered.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
   const list = document.getElementById('list-recetas');
   const count = document.getElementById('count-recetas');
@@ -1677,10 +1688,14 @@ function renderSuggestions() {
     if (item.estado === 'favorita') tags.push(`<span class="recipe-tag estado-favorita">⭐ Favorita</span>`);
     if (item.estado === 'descongelar') tags.push(`<span class="recipe-tag estado-descongelar">🧊 Descongelar</span>`);
 
+    const displayName = isSearching
+      ? item.name.replace(new RegExp(`(${searchQuery})`, 'gi'), '<mark style="background:#ffe4c4;border-radius:3px;padding:0 2px">$1</mark>')
+      : item.name;
+
     card.innerHTML = `
       <div class="recipe-main">
         <div class="recipe-content">
-          <div class="recipe-name">${item.name}</div>
+          <div class="recipe-name">${displayName}</div>
           ${tags.length ? `<div class="recipe-tags">${tags.join('')}</div>` : ''}
           ${item.link ? `<a class="recipe-link" href="${item.link}" target="_blank">🔗 Ver receta</a>` : ''}
         </div>
@@ -1767,9 +1782,9 @@ function saveRecipe() {
 
   if (editingRecipeId) {
     const item = getRecipes().find(r => r.id === editingRecipeId);
-    if (item) Object.assign(item, { name, link, estacion, proteina, estado });
+    if (item) Object.assign(item, { name, link, estacion, proteina, estado, updatedAt: Date.now() });
   } else {
-    getRecipes().push({ id: 'r' + Date.now(), name, link, estacion, proteina, estado });
+    getRecipes().push({ id: 'r' + Date.now(), name, link, estacion, proteina, estado, updatedAt: Date.now() });
   }
   save();
   closeModal('editModal');
