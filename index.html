@@ -1360,7 +1360,7 @@ function renderWeek() {
     const isToday = key === today;
 
     const card = document.createElement('div');
-    card.className = 'day-card' + (isToday ? ' today open' : '') + (dayData.done ? ' done' : '');
+    card.className = 'day-card' + (isToday ? ' today' : '') + (dayData.done ? ' done' : '');
     card.id = 'card-' + key;
 
     card.innerHTML = `
@@ -1381,7 +1381,7 @@ function renderWeek() {
           <span class="day-chevron">▾</span>
         </div>
       </div>
-      <div class="day-body ${isToday ? 'open' : ''}" id="body-${key}">
+      <div class="day-body" id="body-${key}">
         <div class="field-label">🏋️ Ejercicio</div>
         <div class="exercise-grid" id="ex-${key}"></div>
         <div class="field-label">☀️ Comida</div>
