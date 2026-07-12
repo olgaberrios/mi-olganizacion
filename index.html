@@ -1112,15 +1112,15 @@
     <!-- Gemini key setup — shown if no key saved -->
     <div id="asist-setup" style="display:none">
       <div class="asist-card">
-        <div class="asist-card-title">🔑 Conectar Gemini</div>
-        <p style="font-size:0.85rem;color:var(--muted);line-height:1.6;margin-bottom:12px">Para usar el Asistente necesitas una clave de API de Google Gemini (gratuita). Se guardará en tu Gist privado, no en el código.</p>
+        <div class="asist-card-title">🔑 Conectar Asistente IA</div>
+        <p style="font-size:0.85rem;color:var(--muted);line-height:1.6;margin-bottom:12px">Para usar el Asistente necesitas una clave de API de OpenRouter (gratuita). Se guardará en tu Gist privado, no en el código.</p>
         <ol style="font-size:0.85rem;color:var(--text);line-height:2.2;padding-left:18px;margin-bottom:16px">
-          <li>Ve a <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent)">aistudio.google.com/apikey</a></li>
-          <li>Pulsa <b>Crear clave de API</b></li>
-          <li>Selecciona el proyecto <b>Mi Olganización</b></li>
+          <li>Ve a <a href="https://openrouter.ai/keys" target="_blank" style="color:var(--accent)">openrouter.ai/keys</a></li>
+          <li>Inicia sesión con tu cuenta de Google</li>
+          <li>Pulsa <b>Create key</b></li>
           <li>Copia la clave y pégala aquí</li>
         </ol>
-        <input type="password" id="asist-gemini-key-input" class="asist-input" placeholder="Pega aquí tu clave de Gemini..." />
+        <input type="password" id="asist-gemini-key-input" class="asist-input" placeholder="Pega aquí tu clave de OpenRouter (sk-or-...)..." />
         <div id="asist-setup-error" style="color:#c0392b;font-size:0.82rem;margin-bottom:10px;display:none">Clave inválida. Inténtalo de nuevo.</div>
         <button class="btn-primary" onclick="guardarGeminiKey()">Conectar →</button>
       </div>
@@ -2386,11 +2386,32 @@ function saveProducto() {
 }
 
 // ─── ASISTENTE ────────────────────────────────────────────
-const GEMINI_URL_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=';
+const AI_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-function getGeminiUrl() {
+async function callGemini(prompt) {
   const key = suggestions.asistente?.geminiKey || '';
-  return GEMINI_URL_BASE + key;
+  if (!key) throw new Error('No hay clave de API configurada');
+  const res = await fetch(AI_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + key,
+      'HTTP-Referer': 'https://olgaberrios.github.io/mi-olganizacion/',
+      'X-Title': 'Mi Olganización'
+    },
+    body: JSON.stringify({
+      model: 'google/gemma-3-27b-it:free',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 2048,
+      temperature: 0.7
+    })
+  });
+  const json = await res.json();
+  if (!res.ok) {
+    const msg = json?.error?.message || JSON.stringify(json);
+    throw new Error('Error ' + res.status + ': ' + msg);
+  }
+  return json.choices?.[0]?.message?.content || '(sin respuesta)';
 }
 
 let modoActual = 'valoracion';
@@ -2441,12 +2462,18 @@ async function guardarGeminiKey() {
 
   // Test the key with a minimal call
   try {
-    const res = await fetch(GEMINI_URL_BASE + key, {
+    const res = await fetch(AI_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + key,
+        'HTTP-Referer': 'https://olgaberrios.github.io/mi-olganizacion/',
+        'X-Title': 'Mi Olganización'
+      },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: 'Di "ok" en una palabra' }] }],
-        generationConfig: { maxOutputTokens: 10 }
+        model: 'google/gemma-3-27b-it:free',
+        messages: [{ role: 'user', content: 'Di ok' }],
+        max_tokens: 5
       })
     });
     if (!res.ok) throw new Error();
