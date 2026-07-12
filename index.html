@@ -2400,7 +2400,7 @@ async function callGemini(prompt) {
       'X-Title': 'Mi Olganización'
     },
     body: JSON.stringify({
-      model: 'google/gemma-3-27b-it:free',
+      model: 'meta-llama/llama-3.1-8b-instruct:free',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 2048,
       temperature: 0.7
@@ -2471,7 +2471,7 @@ async function guardarGeminiKey() {
         'X-Title': 'Mi Olganización'
       },
       body: JSON.stringify({
-        model: 'google/gemma-3-27b-it:free',
+        model: 'meta-llama/llama-3.1-8b-instruct:free',
         messages: [{ role: 'user', content: 'Di ok' }],
         max_tokens: 5
       })
