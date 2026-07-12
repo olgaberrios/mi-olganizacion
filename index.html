@@ -711,7 +711,99 @@
   .setup-card input:focus { border-color:var(--accent); background:white; }
   .setup-error { color:#c0392b; font-size:0.82rem; margin-bottom:10px; display:none; }
 
-  /* ---- SHOPPING LIST ---- */
+  /* ---- ASISTENTE ---- */
+  .asist-mode-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .asist-mode-btn {
+    padding: 10px 8px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.15s;
+    text-align: center;
+  }
+  .asist-mode-btn.active { background: var(--accent-light); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+
+  .asist-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    border: 1.5px solid var(--border);
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+  }
+
+  .asist-card-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+
+  .asist-input {
+    width: 100%;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    padding: 9px 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88rem;
+    background: var(--bg);
+    outline: none;
+    color: var(--text);
+    margin-bottom: 10px;
+    transition: border-color 0.15s;
+  }
+  .asist-input:focus { border-color: var(--accent); background: white; }
+
+  .asist-textarea {
+    width: 100%;
+    border: 1.5px solid var(--border);
+    border-radius: 9px;
+    padding: 10px 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    color: var(--text);
+    background: var(--bg);
+    resize: none;
+    outline: none;
+    line-height: 1.6;
+    transition: border-color 0.15s;
+    margin-bottom: 12px;
+  }
+  .asist-textarea:focus { border-color: var(--accent); background: white; }
+
+  .asist-output-text {
+    font-size: 0.88rem;
+    line-height: 1.7;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .asist-apply-btn {
+    background: var(--accent2-light);
+    color: var(--done);
+    border: 1.5px solid var(--done);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: all 0.15s;
+  }
+  .asist-apply-btn:hover { background: var(--done); color: white; }
   .compra-toolbar {
     background: var(--surface);
     border-radius: var(--radius);
@@ -918,6 +1010,7 @@
     <button class="tab active" onclick="showView('week', this)">📅 Semana</button>
     <button class="tab" onclick="showView('suggestions', this)">💡 Recetas</button>
     <button class="tab" onclick="showView('compra', this)">🛒 Compra</button>
+    <button class="tab" onclick="showView('asistente', this)">✨ Asistente</button>
   </div>
 </header>
 
@@ -1010,7 +1103,65 @@
     </div>
     <div id="list-compra"></div>
     <button class="btn-add-recipe" style="width:100%;margin-top:8px" onclick="openAddProducto()">+ Añadir producto</button>
+  </div>  <!-- ASISTENTE VIEW -->
+  <div id="view-asistente" style="display:none">
+
+    <!-- Modo selector -->
+    <div class="asist-mode-bar">
+      <button class="asist-mode-btn active" id="modo-valoracion" onclick="setModo('valoracion',this)">📊 Valoración semana</button>
+      <button class="asist-mode-btn" id="modo-plan" onclick="setModo('plan',this)">📅 Plan siguiente semana</button>
+    </div>
+
+    <!-- VALORACIÓN -->
+    <div id="asist-valoracion">
+      <div class="asist-card">
+        <div class="asist-card-title">📊 Datos de esta semana</div>
+        <div class="field-label">Peso anterior (kg)</div>
+        <input type="number" step="0.1" id="val-peso-ant" class="asist-input" placeholder="ej: 62.5" />
+        <div class="field-label">Peso actual (kg)</div>
+        <input type="number" step="0.1" id="val-peso-act" class="asist-input" placeholder="ej: 62.0" />
+        <div class="field-label">Altura (cm) — solo la primera vez</div>
+        <input type="number" id="val-altura" class="asist-input" placeholder="ej: 165" />
+        <div class="field-label">Notas adicionales para la valoración</div>
+        <textarea class="asist-textarea" id="val-notas" rows="3" placeholder="Ej: he dormido mal, mucho cansancio, algún capricho extra..."></textarea>
+        <button class="btn-primary" onclick="generarValoracion()">✨ Valorar mi semana</button>
+      </div>
+    </div>
+
+    <!-- PLAN -->
+    <div id="asist-plan" style="display:none">
+      <div class="asist-card">
+        <div class="asist-card-title">📝 Mis indicaciones habituales</div>
+        <div class="field-label" style="margin-top:0">Se guardan automáticamente</div>
+        <textarea class="asist-textarea" id="plan-indicaciones" rows="12"
+          oninput="saveAsistente()"
+          placeholder="Escribe aquí tus indicaciones habituales para el plan semanal..."></textarea>
+      </div>
+      <div class="asist-card">
+        <div class="asist-card-title">💬 Esta semana en concreto</div>
+        <textarea class="asist-textarea" id="plan-semana" rows="4"
+          placeholder="Ej: pon 2 cenas de judías verdes, hay viaje el jueves, quiero probar la receta de lentejas con mango..."></textarea>
+      </div>
+      <button class="btn-primary" onclick="generarPlan()">✨ Generar plan semanal</button>
+    </div>
+
+    <!-- RESULTADO -->
+    <div id="asist-resultado" style="display:none">
+      <div class="asist-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div class="asist-card-title" style="margin-bottom:0" id="resultado-titulo">Resultado</div>
+          <button class="btn-secondary" style="padding:6px 12px;font-size:0.78rem" onclick="cerrarResultado()">← Volver</button>
+        </div>
+        <div id="asist-loading" style="text-align:center;padding:24px;color:var(--muted);display:none">
+          <div style="font-size:1.5rem;margin-bottom:8px">🦆</div>
+          <div>Pensando...</div>
+        </div>
+        <div id="asist-output"></div>
+      </div>
+    </div>
+
   </div>
+
 </main>
 
 <!-- Add/Edit product modal -->
@@ -1332,8 +1483,10 @@ function showView(view, btn) {
   document.getElementById('view-week').style.display = view === 'week' ? 'block' : 'none';
   document.getElementById('view-suggestions').style.display = view === 'suggestions' ? 'block' : 'none';
   document.getElementById('view-compra').style.display = view === 'compra' ? 'block' : 'none';
+  document.getElementById('view-asistente').style.display = view === 'asistente' ? 'block' : 'none';
   if (view === 'suggestions') renderSuggestions();
   if (view === 'compra') renderCompra();
+  if (view === 'asistente') initAsistente();
 }
 
 function changeWeek(dir) {
@@ -2186,6 +2339,254 @@ function saveProducto() {
   closeModal('productoModal');
   renderCompra();
 }
+
+// ─── ASISTENTE ────────────────────────────────────────────
+const GEMINI_KEY = 'AIzaSyAQ.Ab8RN6KQ4_Seugu6DLNOnXcM8jr5ANANoxxhOU8AqYUUdM0OCQ';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + GEMINI_KEY;
+
+let modoActual = 'valoracion';
+
+function initAsistente() {
+  const saved = suggestions.asistente || {};
+  const ta = document.getElementById('plan-indicaciones');
+  if (ta && saved.indicaciones) ta.value = saved.indicaciones;
+  if (saved.altura) document.getElementById('val-altura').value = saved.altura;
+}
+
+function saveAsistente() {
+  if (!suggestions.asistente) suggestions.asistente = {};
+  suggestions.asistente.indicaciones = document.getElementById('plan-indicaciones')?.value || '';
+  save();
+}
+
+function setModo(modo, btn) {
+  modoActual = modo;
+  document.querySelectorAll('.asist-mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('asist-valoracion').style.display = modo === 'valoracion' ? 'block' : 'none';
+  document.getElementById('asist-plan').style.display = modo === 'plan' ? 'block' : 'none';
+  document.getElementById('asist-resultado').style.display = 'none';
+}
+
+function cerrarResultado() {
+  document.getElementById('asist-resultado').style.display = 'none';
+  document.getElementById('asist-valoracion').style.display = modoActual === 'valoracion' ? 'block' : 'none';
+  document.getElementById('asist-plan').style.display = modoActual === 'plan' ? 'block' : 'none';
+}
+
+function getWeekSummary(offset = 0) {
+  const weekStart = getWeekStart(offset);
+  let text = '';
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    const key = dateKey(d);
+    const dd = data[key];
+    if (!dd) continue;
+    const label = `${DAYS_ES[d.getDay()]} ${d.getDate()} de ${MONTHS_ES[d.getMonth()]}`;
+    text += `\n${label}${dd.done ? ' ✅' : ''}\n`;
+    const exChecked = Object.entries(dd.exercises || {})
+      .filter(([k,v]) => v && v.checked)
+      .map(([k,v]) => {
+        const ex = EXERCISES.find(e=>e.id===k);
+        let lbl = ex?.label?.replace(/\p{Emoji}/gu,'').trim() || k;
+        if (ex?.km && v.km) lbl += ' ' + v.km + 'km';
+        return lbl;
+      });
+    if (exChecked.length) text += `• Ejercicio: ${exChecked.join(', ')}\n`;
+    if (dd.comida) text += `• Comida: ${dd.comida}\n`;
+    if (dd.cena) text += `• Cena: ${dd.cena}\n`;
+    if (dd.notas) text += `• Notas: ${dd.notas}\n`;
+  }
+  return text || '(semana sin datos)';
+}
+
+function getRecipesSummary() {
+  const recipes = getRecipes();
+  const favoritas = recipes.filter(r => r.estado === 'favorita').map(r => r.name);
+  const sinProbar = recipes.filter(r => !r.estado || r.estado === 'sin-probar').map(r => r.name);
+  const congelador = recipes.filter(r => r.estado === 'descongelar').map(r => r.name);
+  let text = '';
+  if (favoritas.length) text += `\nFavoritas: ${favoritas.join(', ')}`;
+  if (sinProbar.length) text += `\nSin probar: ${sinProbar.join(', ')}`;
+  if (congelador.length) text += `\nEn el congelador: ${congelador.join(', ')}`;
+  return text;
+}
+
+async function callGemini(prompt) {
+  const res = await fetch(GEMINI_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
+    })
+  });
+  if (!res.ok) throw new Error('Error ' + res.status);
+  const json = await res.json();
+  return json.candidates?.[0]?.content?.parts?.[0]?.text || '(sin respuesta)';
+}
+
+function showLoading(titulo) {
+  document.getElementById('asist-valoracion').style.display = 'none';
+  document.getElementById('asist-plan').style.display = 'none';
+  document.getElementById('asist-resultado').style.display = 'block';
+  document.getElementById('resultado-titulo').textContent = titulo;
+  document.getElementById('asist-loading').style.display = 'block';
+  document.getElementById('asist-output').innerHTML = '';
+}
+
+function showResultado(texto) {
+  document.getElementById('asist-loading').style.display = 'none';
+  const out = document.getElementById('asist-output');
+
+  if (modoActual === 'plan') {
+    const lines = texto.split('\n');
+    let html = '';
+    const dayBlocks = [];
+    let currentDay = null;
+    let currentContent = [];
+
+    lines.forEach(line => {
+      const dayMatch = line.match(/^(Lunes|Martes|Miércoles|Jueves|Viernes|Sábado|Domingo)\s+\d+/i);
+      if (dayMatch) {
+        if (currentDay) dayBlocks.push({ header: currentDay, lines: [...currentContent] });
+        currentDay = line;
+        currentContent = [];
+      } else if (currentDay) {
+        currentContent.push(line);
+      }
+    });
+    if (currentDay) dayBlocks.push({ header: currentDay, lines: [...currentContent] });
+
+    if (dayBlocks.length > 0) {
+      window._planBlocks = dayBlocks;
+      dayBlocks.forEach((block, i) => {
+        html += `<div style="margin-bottom:10px;padding:12px;background:var(--bg);border-radius:10px;border:1.5px solid var(--border)">`;
+        html += `<div style="font-weight:700;color:var(--accent);margin-bottom:6px">${block.header}</div>`;
+        html += `<div style="font-size:0.85rem;line-height:1.7;white-space:pre-wrap">${block.lines.join('\n')}</div>`;
+        html += `<button class="asist-apply-btn" onclick="applyDayPlan(${i})">✓ Aplicar este día</button>`;
+        html += `</div>`;
+      });
+    } else {
+      html = `<div class="asist-output-text">${texto.replace(/\n/g, '<br>')}</div>`;
+    }
+    out.innerHTML = html;
+  } else {
+    out.innerHTML = `<div class="asist-output-text">${texto.replace(/\n/g, '<br>')}</div>`;
+  }
+}
+
+function applyDayPlan(blockIdx) {
+  const block = window._planBlocks?.[blockIdx];
+  if (!block) return;
+  const match = block.header.match(/(\d+)\s+de\s+(\w+)/i);
+  if (!match) { alert('No pude identificar la fecha'); return; }
+  const dayNum = parseInt(match[1]);
+  const monthName = match[2].toLowerCase();
+  const monthIdx = MONTHS_ES.indexOf(monthName);
+  if (monthIdx === -1) { alert('No pude identificar el mes'); return; }
+  const year = new Date().getFullYear();
+  const key = dateKey(new Date(year, monthIdx, dayNum));
+  const content = block.lines.join('\n');
+  const comidaMatch = content.match(/[Cc]omida[:\s]+(.+)/);
+  const cenaMatch = content.match(/[Cc]ena[:\s]+(.+)/);
+  const ejercicioMatch = content.match(/[Ee]jercicio[:\s]+(.+)/);
+  if (!data[key]) data[key] = { done: false, exercises: {}, comida: '', cena: '', comidaLink: '', cenaLink: '', notas: '' };
+  if (comidaMatch) data[key].comida = comidaMatch[1].trim();
+  if (cenaMatch) data[key].cena = cenaMatch[1].trim();
+  if (ejercicioMatch) data[key].notas = (data[key].notas ? data[key].notas + '\n' : '') + 'Ejercicio sugerido: ' + ejercicioMatch[1].trim();
+  save();
+  const btns = document.querySelectorAll('.asist-apply-btn');
+  if (btns[blockIdx]) { btns[blockIdx].textContent = '✅ Aplicado'; btns[blockIdx].disabled = true; }
+}
+
+async function generarValoracion() {
+  const pesoAnt = document.getElementById('val-peso-ant').value;
+  const pesoAct = document.getElementById('val-peso-act').value;
+  const altura = document.getElementById('val-altura').value;
+  const notas = document.getElementById('val-notas').value;
+  if (!suggestions.asistente) suggestions.asistente = {};
+  if (altura) { suggestions.asistente.altura = altura; save(); }
+  const alturaGuardada = suggestions.asistente?.altura || altura;
+  const semana = getWeekSummary(0);
+
+  const prompt = `Eres un asistente de salud y bienestar personal amable y directo. Analiza la semana de esta persona y dale una valoración útil y motivadora en español.
+
+DATOS DE LA SEMANA:
+${semana}
+
+DATOS FÍSICOS:
+- Peso anterior: ${pesoAnt || 'no indicado'} kg
+- Peso actual: ${pesoAct || 'no indicado'} kg
+- Altura: ${alturaGuardada || 'no indicada'} cm
+- En meriendas toma: naranja, zanahoria, gazpacho o hummus con pan
+
+NOTAS ADICIONALES:
+${notas || 'ninguna'}
+
+Por favor:
+1. Haz una valoración general de la semana (ejercicio, alimentación, variedad)
+2. Si hay datos de peso, calcula diferencia, IMC y dime si es normopeso, sobrepeso leve, sobrepeso, etc.
+3. Destaca 2-3 cosas positivas
+4. Sugiere 1-2 mejoras concretas para la siguiente semana
+5. Sé breve, cálida y motivadora`;
+
+  showLoading('📊 Valoración de tu semana');
+  try {
+    const resp = await callGemini(prompt);
+    showResultado(resp);
+  } catch(e) {
+    showResultado('❌ Error al conectar con Gemini: ' + e.message);
+  }
+}
+
+async function generarPlan() {
+  const indicaciones = document.getElementById('plan-indicaciones').value;
+  const notasSemana = document.getElementById('plan-semana').value;
+  const semanaActual = getWeekSummary(0);
+  const recetas = getRecipesSummary();
+
+  const weekStart = getWeekStart(1);
+  const fechas = [];
+  for (let i = 0; i < 8; i++) {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    fechas.push(`${DAYS_ES[d.getDay()]} ${d.getDate()} de ${MONTHS_ES[d.getMonth()]}`);
+  }
+
+  const prompt = `Eres un asistente de planificación semanal de comidas y ejercicio. Genera un plan semanal en español.
+
+INSTRUCCIONES HABITUALES:
+${indicaciones || 'Sin instrucciones guardadas'}
+
+NOTAS ESPECÍFICAS DE ESTA SEMANA:
+${notasSemana || 'Sin notas específicas'}
+
+LO QUE YA TIENE PUESTO (úsalo como referencia de gustos, no lo repitas):
+${semanaActual}
+
+SUS RECETAS:
+${recetas || 'Sin recetas'}
+
+DÍAS A PLANIFICAR:
+${fechas.join('\n')}
+
+Genera el plan con este formato exacto para cada día:
+[Día] [Número] de [Mes]
+• Ejercicio: [propuesta]
+• Comida: [propuesta]
+• Cena: [propuesta]`;
+
+  showLoading('📅 Generando plan semanal');
+  try {
+    const resp = await callGemini(prompt);
+    showResultado(resp);
+  } catch(e) {
+    showResultado('❌ Error al conectar con Gemini: ' + e.message);
+  }
+}
+
 setupFilters();
 setupTagSelectors();
 init();
