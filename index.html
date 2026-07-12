@@ -1109,57 +1109,82 @@
   </div>  <!-- ASISTENTE VIEW -->
   <div id="view-asistente" style="display:none">
 
-    <!-- Modo selector -->
-    <div class="asist-mode-bar">
-      <button class="asist-mode-btn active" id="modo-valoracion" onclick="setModo('valoracion',this)">📊 Valoración semana</button>
-      <button class="asist-mode-btn" id="modo-plan" onclick="setModo('plan',this)">📅 Plan siguiente semana</button>
-    </div>
-
-    <!-- VALORACIÓN -->
-    <div id="asist-valoracion">
+    <!-- Gemini key setup — shown if no key saved -->
+    <div id="asist-setup" style="display:none">
       <div class="asist-card">
-        <div class="asist-card-title">📊 Datos de esta semana</div>
-        <div class="field-label">Peso anterior (kg)</div>
-        <input type="number" step="0.1" id="val-peso-ant" class="asist-input" placeholder="ej: 62.5" />
-        <div class="field-label">Peso actual (kg)</div>
-        <input type="number" step="0.1" id="val-peso-act" class="asist-input" placeholder="ej: 62.0" />
-        <div class="field-label">Altura (cm) — solo la primera vez</div>
-        <input type="number" id="val-altura" class="asist-input" placeholder="ej: 165" />
-        <div class="field-label">Notas adicionales para la valoración</div>
-        <textarea class="asist-textarea" id="val-notas" rows="3" placeholder="Ej: he dormido mal, mucho cansancio, algún capricho extra..."></textarea>
-        <button class="btn-primary" onclick="generarValoracion()">✨ Valorar mi semana</button>
+        <div class="asist-card-title">🔑 Conectar Gemini</div>
+        <p style="font-size:0.85rem;color:var(--muted);line-height:1.6;margin-bottom:12px">Para usar el Asistente necesitas una clave de API de Google Gemini (gratuita). Se guardará en tu Gist privado, no en el código.</p>
+        <ol style="font-size:0.85rem;color:var(--text);line-height:2.2;padding-left:18px;margin-bottom:16px">
+          <li>Ve a <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent)">aistudio.google.com/apikey</a></li>
+          <li>Pulsa <b>Crear clave de API</b></li>
+          <li>Selecciona el proyecto <b>Mi Olganización</b></li>
+          <li>Copia la clave y pégala aquí</li>
+        </ol>
+        <input type="password" id="asist-gemini-key-input" class="asist-input" placeholder="Pega aquí tu clave de Gemini..." />
+        <div id="asist-setup-error" style="color:#c0392b;font-size:0.82rem;margin-bottom:10px;display:none">Clave inválida. Inténtalo de nuevo.</div>
+        <button class="btn-primary" onclick="guardarGeminiKey()">Conectar →</button>
       </div>
     </div>
 
-    <!-- PLAN -->
-    <div id="asist-plan" style="display:none">
-      <div class="asist-card">
-        <div class="asist-card-title">📝 Mis indicaciones habituales</div>
-        <div class="field-label" style="margin-top:0">Se guardan automáticamente</div>
-        <textarea class="asist-textarea" id="plan-indicaciones" rows="12"
-          oninput="saveAsistente()"
-          placeholder="Escribe aquí tus indicaciones habituales para el plan semanal..."></textarea>
+    <!-- Main asistente UI -->
+    <div id="asist-main" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-size:0.72rem;color:var(--muted)">🔑 Gemini conectado</span>
+        <button onclick="cambiarGeminiKey()" style="background:none;border:none;font-size:0.72rem;color:var(--muted);cursor:pointer;text-decoration:underline">Cambiar clave</button>
       </div>
-      <div class="asist-card">
-        <div class="asist-card-title">💬 Esta semana en concreto</div>
-        <textarea class="asist-textarea" id="plan-semana" rows="4"
-          placeholder="Ej: pon 2 cenas de judías verdes, hay viaje el jueves, quiero probar la receta de lentejas con mango..."></textarea>
-      </div>
-      <button class="btn-primary" onclick="generarPlan()">✨ Generar plan semanal</button>
-    </div>
 
-    <!-- RESULTADO -->
-    <div id="asist-resultado" style="display:none">
-      <div class="asist-card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-          <div class="asist-card-title" style="margin-bottom:0" id="resultado-titulo">Resultado</div>
-          <button class="btn-secondary" style="padding:6px 12px;font-size:0.78rem" onclick="cerrarResultado()">← Volver</button>
+      <!-- Modo selector -->
+      <div class="asist-mode-bar">
+        <button class="asist-mode-btn active" id="modo-valoracion" onclick="setModo('valoracion',this)">📊 Valoración semana</button>
+        <button class="asist-mode-btn" id="modo-plan" onclick="setModo('plan',this)">📅 Plan siguiente semana</button>
+      </div>
+
+      <!-- VALORACIÓN -->
+      <div id="asist-valoracion">
+        <div class="asist-card">
+          <div class="asist-card-title">📊 Datos de esta semana</div>
+          <div class="field-label">Peso anterior (kg)</div>
+          <input type="number" step="0.1" id="val-peso-ant" class="asist-input" placeholder="ej: 62.5" />
+          <div class="field-label">Peso actual (kg)</div>
+          <input type="number" step="0.1" id="val-peso-act" class="asist-input" placeholder="ej: 62.0" />
+          <div class="field-label">Altura (cm) — solo la primera vez</div>
+          <input type="number" id="val-altura" class="asist-input" placeholder="ej: 165" />
+          <div class="field-label">Notas adicionales para la valoración</div>
+          <textarea class="asist-textarea" id="val-notas" rows="3" placeholder="Ej: he dormido mal, mucho cansancio, algún capricho extra..."></textarea>
+          <button class="btn-primary" onclick="generarValoracion()">✨ Valorar mi semana</button>
         </div>
-        <div id="asist-loading" style="text-align:center;padding:24px;color:var(--muted);display:none">
-          <div style="font-size:1.5rem;margin-bottom:8px">🦆</div>
-          <div>Pensando...</div>
+      </div>
+
+      <!-- PLAN -->
+      <div id="asist-plan" style="display:none">
+        <div class="asist-card">
+          <div class="asist-card-title">📝 Mis indicaciones habituales</div>
+          <div class="field-label" style="margin-top:0">Se guardan automáticamente</div>
+          <textarea class="asist-textarea" id="plan-indicaciones" rows="16"
+            oninput="saveAsistente()"
+            placeholder="Escribe aquí tus indicaciones habituales para el plan semanal..."></textarea>
         </div>
-        <div id="asist-output"></div>
+        <div class="asist-card">
+          <div class="asist-card-title">💬 Esta semana en concreto</div>
+          <textarea class="asist-textarea" id="plan-semana" rows="4"
+            placeholder="Ej: pon 2 cenas de judías verdes, hay viaje el jueves, quiero probar la receta de lentejas con mango..."></textarea>
+        </div>
+        <button class="btn-primary" onclick="generarPlan()">✨ Generar plan semanal</button>
+      </div>
+
+      <!-- RESULTADO -->
+      <div id="asist-resultado" style="display:none">
+        <div class="asist-card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div class="asist-card-title" style="margin-bottom:0" id="resultado-titulo">Resultado</div>
+            <button class="btn-secondary" style="padding:6px 12px;font-size:0.78rem" onclick="cerrarResultado()">← Volver</button>
+          </div>
+          <div id="asist-loading" style="text-align:center;padding:24px;color:var(--muted);display:none">
+            <div style="font-size:1.5rem;margin-bottom:8px">🦆</div>
+            <div>Pensando...</div>
+          </div>
+          <div id="asist-output"></div>
+        </div>
       </div>
     </div>
 
@@ -2361,8 +2386,12 @@ function saveProducto() {
 }
 
 // ─── ASISTENTE ────────────────────────────────────────────
-const GEMINI_KEY = 'AIzaSyAQ.Ab8RN6KQ4_Seugu6DLNOnXcM8jr5ANANoxxhOU8AqYUUdM0OCQ';
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + GEMINI_KEY;
+const GEMINI_URL_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=';
+
+function getGeminiUrl() {
+  const key = suggestions.asistente?.geminiKey || '';
+  return GEMINI_URL_BASE + key;
+}
 
 let modoActual = 'valoracion';
 
@@ -2393,9 +2422,49 @@ Incluye también propuesta de ejercicio:
 
 function initAsistente() {
   const saved = suggestions.asistente || {};
-  const ta = document.getElementById('plan-indicaciones');
-  if (ta) ta.value = saved.indicaciones ?? DEFAULT_INDICACIONES;
-  if (saved.altura) document.getElementById('val-altura').value = saved.altura;
+  const hasKey = !!saved.geminiKey;
+
+  document.getElementById('asist-setup').style.display = hasKey ? 'none' : 'block';
+  document.getElementById('asist-main').style.display = hasKey ? 'block' : 'none';
+
+  if (hasKey) {
+    const ta = document.getElementById('plan-indicaciones');
+    if (ta) ta.value = saved.indicaciones ?? DEFAULT_INDICACIONES;
+    if (saved.altura) document.getElementById('val-altura').value = saved.altura;
+  }
+}
+
+async function guardarGeminiKey() {
+  const key = document.getElementById('asist-gemini-key-input').value.trim();
+  if (!key) return;
+  document.getElementById('asist-setup-error').style.display = 'none';
+
+  // Test the key with a minimal call
+  try {
+    const res = await fetch(GEMINI_URL_BASE + key, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: 'Di "ok" en una palabra' }] }],
+        generationConfig: { maxOutputTokens: 10 }
+      })
+    });
+    if (!res.ok) throw new Error();
+    if (!suggestions.asistente) suggestions.asistente = {};
+    suggestions.asistente.geminiKey = key;
+    save();
+    initAsistente();
+  } catch {
+    document.getElementById('asist-setup-error').style.display = 'block';
+  }
+}
+
+function cambiarGeminiKey() {
+  if (!suggestions.asistente) suggestions.asistente = {};
+  suggestions.asistente.geminiKey = '';
+  save();
+  document.getElementById('asist-gemini-key-input').value = '';
+  initAsistente();
 }
 
 function saveAsistente() {
@@ -2461,7 +2530,9 @@ function getRecipesSummary() {
 }
 
 async function callGemini(prompt) {
-  const res = await fetch(GEMINI_URL, {
+  const key = suggestions.asistente?.geminiKey || '';
+  if (!key) throw new Error('No hay clave de Gemini configurada');
+  const res = await fetch(GEMINI_URL_BASE + key, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -2469,8 +2540,11 @@ async function callGemini(prompt) {
       generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
     })
   });
-  if (!res.ok) throw new Error('Error ' + res.status);
   const json = await res.json();
+  if (!res.ok) {
+    const msg = json?.error?.message || JSON.stringify(json);
+    throw new Error('Error ' + res.status + ': ' + msg);
+  }
   return json.candidates?.[0]?.content?.parts?.[0]?.text || '(sin respuesta)';
 }
 
