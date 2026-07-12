@@ -2476,12 +2476,19 @@ async function guardarGeminiKey() {
         max_tokens: 5
       })
     });
-    if (!res.ok) throw new Error();
+    const json = await res.json();
+    if (!res.ok) {
+      const msg = json?.error?.message || JSON.stringify(json);
+      document.getElementById('asist-setup-error').textContent = 'Error ' + res.status + ': ' + msg;
+      document.getElementById('asist-setup-error').style.display = 'block';
+      return;
+    }
     if (!suggestions.asistente) suggestions.asistente = {};
     suggestions.asistente.geminiKey = key;
     save();
     initAsistente();
-  } catch {
+  } catch(e) {
+    document.getElementById('asist-setup-error').textContent = e.message || 'Error desconocido';
     document.getElementById('asist-setup-error').style.display = 'block';
   }
 }
