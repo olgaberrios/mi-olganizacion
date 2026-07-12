@@ -409,6 +409,7 @@
   }
   .recipe-card.probada { border-left: 4px solid var(--done); }
   .recipe-card.favorita { border-left: 4px solid #f0a500; }
+  .recipe-card.esta-semana { border-left: 4px solid #7b5ea7; }
   .recipe-card.descongelar { border-left: 4px solid #5b9bd5; }
 
   .recipe-main {
@@ -445,6 +446,7 @@
   .recipe-tag.proteina { background: var(--accent2-light); color: #2e7d32; }
   .recipe-tag.estado-probada { background: var(--accent2-light); color: var(--done); }
   .recipe-tag.estado-favorita { background: #fff8e1; color: #e65100; }
+  .recipe-tag.estado-esta-semana { background: #f0ebfa; color: #7b5ea7; }
   .recipe-tag.estado-descongelar { background: #e3f2fd; color: #1565c0; }
 
   .recipe-link {
@@ -1057,6 +1059,7 @@
         <div class="filter-pills" id="filter-estado">
           <button class="fpill active" data-val="">Todas</button>
           <button class="fpill" data-val="sin-probar">⭕ Sin probar</button>
+          <button class="fpill" data-val="esta-semana">🎯 Esta semana</button>
           <button class="fpill" data-val="probada">✅ Probada</button>
           <button class="fpill" data-val="favorita">⭐ Favoritas</button>
           <button class="fpill" data-val="descongelar">🧊 Descongelar</button>
@@ -1218,6 +1221,7 @@
     <div class="field-label">Estado</div>
     <div class="tag-selector" id="edit-estado">
       <button class="tag-opt" data-val="sin-probar">⭕ Sin probar</button>
+      <button class="tag-opt" data-val="esta-semana">🎯 Esta semana</button>
       <button class="tag-opt" data-val="probada">✅ Probada</button>
       <button class="tag-opt" data-val="favorita">⭐ Favorita</button>
       <button class="tag-opt" data-val="descongelar">🧊 Descongelar</button>
@@ -1791,7 +1795,7 @@ function hideAutocomplete(listId) {
 // ─── RECIPES ──────────────────────────────────────────────
 const ESTACION_LABELS = { verano: '☀️ Verano', invierno: '❄️ Invierno', todo: '🗓️ Todo el año' };
 const PROTEINA_LABELS = { legumbres: '🫘 Legumbres', soja: '🌱 Soja', tofu: '⬜ Tofu', huevo: '🍳 Huevo', queso: '🧀 Queso', verduras: '🥬 Solo verduras', heura: '🍗 Heura' };
-const ESTADO_LABELS   = { probada: '✅ Probada', favorita: '⭐ Favorita', descongelar: '🧊 Descongelar' };
+const ESTADO_LABELS = { probada: '✅ Probada', favorita: '⭐ Favorita', 'esta-semana': '🎯 Esta semana', descongelar: '🧊 Descongelar' };
 
 let activeFilters = { estacion: '', proteina: '', estado: '' };
 let editingRecipeId = null;
@@ -1809,7 +1813,8 @@ function renderSuggestions() {
   let filtered = recipes.filter(r => {
     if (activeFilters.estacion && r.estacion !== activeFilters.estacion) return false;
     if (activeFilters.proteina && r.proteina !== activeFilters.proteina) return false;
-    if (activeFilters.estado === 'sin-probar' && (r.estado === 'probada' || r.estado === 'favorita' || r.estado === 'descongelar')) return false;
+    if (activeFilters.estado === 'sin-probar' && (r.estado === 'probada' || r.estado === 'favorita' || r.estado === 'esta-semana' || r.estado === 'descongelar')) return false;
+    if (activeFilters.estado === 'esta-semana' && r.estado !== 'esta-semana') return false;
     if (activeFilters.estado === 'probada' && r.estado !== 'probada') return false;
     if (activeFilters.estado === 'favorita' && r.estado !== 'favorita') return false;
     if (activeFilters.estado === 'descongelar' && r.estado !== 'descongelar') return false;
@@ -1837,6 +1842,7 @@ function renderSuggestions() {
     const tags = [];
     if (item.estacion) tags.push(`<span class="recipe-tag estacion">${ESTACION_LABELS[item.estacion] || item.estacion}</span>`);
     if (item.proteina) tags.push(`<span class="recipe-tag proteina">${PROTEINA_LABELS[item.proteina] || item.proteina}</span>`);
+    if (item.estado === 'esta-semana') tags.push(`<span class="recipe-tag estado-esta-semana">🎯 Esta semana</span>`);
     if (item.estado === 'probada') tags.push(`<span class="recipe-tag estado-probada">✅ Probada</span>`);
     if (item.estado === 'favorita') tags.push(`<span class="recipe-tag estado-favorita">⭐ Favorita</span>`);
     if (item.estado === 'descongelar') tags.push(`<span class="recipe-tag estado-descongelar">🧊 Descongelar</span>`);
@@ -2404,9 +2410,11 @@ function getWeekSummary(offset = 0) {
 function getRecipesSummary() {
   const recipes = getRecipes();
   const favoritas = recipes.filter(r => r.estado === 'favorita').map(r => r.name);
+  const estaSemana = recipes.filter(r => r.estado === 'esta-semana').map(r => r.name);
   const sinProbar = recipes.filter(r => !r.estado || r.estado === 'sin-probar').map(r => r.name);
   const congelador = recipes.filter(r => r.estado === 'descongelar').map(r => r.name);
   let text = '';
+  if (estaSemana.length) text += `\nQuiero probar esta semana: ${estaSemana.join(', ')}`;
   if (favoritas.length) text += `\nFavoritas: ${favoritas.join(', ')}`;
   if (sinProbar.length) text += `\nSin probar: ${sinProbar.join(', ')}`;
   if (congelador.length) text += `\nEn el congelador: ${congelador.join(', ')}`;
