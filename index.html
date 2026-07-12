@@ -1227,6 +1227,17 @@
       <button class="tag-opt" data-val="descongelar">🧊 Descongelar</button>
     </div>
 
+    <div class="field-label">🧺 Ingredientes</div>
+    <textarea class="asist-textarea" id="edit-ingredientes" rows="4"
+      placeholder="Ej: garbanzos, pepino, tomate cherry, queso feta, aceitunas..."></textarea>
+    <div style="margin-bottom:12px">
+      <div class="field-label" style="margin-bottom:6px">✨ Extraer ingredientes de Instagram</div>
+      <p style="font-size:0.78rem;color:var(--muted);margin-bottom:8px;line-height:1.5">Copia la descripción del post de Instagram y pégala aquí. Gemini extraerá los ingredientes automáticamente.</p>
+      <textarea class="asist-textarea" id="edit-descripcion-ig" rows="3"
+        placeholder="Pega aquí la descripción del post de Instagram..." style="margin-bottom:8px"></textarea>
+      <button class="btn-secondary" style="width:100%;color:var(--accent);border-color:var(--accent)" onclick="extraerIngredientes()">✨ Extraer ingredientes</button>
+    </div>
+
     <div class="modal-actions" style="margin-top:14px">
       <button class="btn-secondary" onclick="closeModal('editModal')">Cancelar</button>
       <button class="btn-primary" style="flex:1" onclick="saveRecipe()">Guardar</button>
@@ -1886,6 +1897,8 @@ function openAddRecipe() {
   document.getElementById('editModalTitle').textContent = '+ Nueva receta';
   document.getElementById('edit-name').value = '';
   document.getElementById('edit-link').value = '';
+  document.getElementById('edit-ingredientes').value = '';
+  document.getElementById('edit-descripcion-ig').value = '';
   clearTagSelectors();
   document.getElementById('editModal').classList.add('open');
 }
@@ -1938,12 +1951,13 @@ function saveRecipe() {
   const estacion = getSelectedTag('edit-estacion');
   const proteina = getSelectedTag('edit-proteina');
   const estado   = getSelectedTag('edit-estado');
+  const ingredientes = document.getElementById('edit-ingredientes').value.trim();
 
   if (editingRecipeId) {
     const item = getRecipes().find(r => r.id === editingRecipeId);
-    if (item) Object.assign(item, { name, link, estacion, proteina, estado, updatedAt: Date.now() });
+    if (item) Object.assign(item, { name, link, estacion, proteina, estado, ingredientes, updatedAt: Date.now() });
   } else {
-    getRecipes().push({ id: 'r' + Date.now(), name, link, estacion, proteina, estado, updatedAt: Date.now() });
+    getRecipes().push({ id: 'r' + Date.now(), name, link, estacion, proteina, estado, ingredientes, updatedAt: Date.now() });
   }
   save();
   closeModal('editModal');
@@ -2348,14 +2362,39 @@ function saveProducto() {
 
 // ─── ASISTENTE ────────────────────────────────────────────
 const GEMINI_KEY = 'AIzaSyAQ.Ab8RN6KQ4_Seugu6DLNOnXcM8jr5ANANoxxhOU8AqYUUdM0OCQ';
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + GEMINI_KEY;
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + GEMINI_KEY;
 
 let modoActual = 'valoracion';
+
+const DEFAULT_INDICACIONES = `Recetas nuevas a probar esta semana: 2
+Esta semana incluye:
+
+Otras indicaciones
+- Ten en cuenta lo que ya he puesto o previsto en lo que te he pegado
+- Ten en cuenta las 2-3 semanas anteriores para hacer dieta variada
+- Incluye algo del congelador hacia el final de la semana o tras un viaje o algo así si te indico
+- Varía de legumbres: no todo son garbanzos
+- Valora si puede ser interesante variar alguna verdura o ingrediente
+- Intenta que algunas comidas y las cenas se repitan 2 veces con 1 día de diferencia entre ellas
+- Duración: incluye siempre el lunes siguiente
+
+Cenas
+- Mete 3 cenas con tortilla
+- Intentaría casi todas las cenas con ensalada, incluyendo la de wakame, que me encantó
+- He guardado cenas habituales numeradas. Úsalas
+- Ten en cuenta la estación en la que estamos. Por ejemplo, si es verano, pon comidas frescas y que no resulten pesadas
+
+Ejercicio
+Incluye también propuesta de ejercicio:
+- Pon cada día rutina de fuerza (fullbody, piernas o torso)
+- Complementaria de abdomen o glúteos
+- Sábados senderismo
+- Paseo diario`;
 
 function initAsistente() {
   const saved = suggestions.asistente || {};
   const ta = document.getElementById('plan-indicaciones');
-  if (ta && saved.indicaciones) ta.value = saved.indicaciones;
+  if (ta) ta.value = saved.indicaciones ?? DEFAULT_INDICACIONES;
   if (saved.altura) document.getElementById('val-altura').value = saved.altura;
 }
 
