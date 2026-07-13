@@ -1379,6 +1379,7 @@ async function loadFromGist() {
       suggestions = parsed.suggestions || JSON.parse(JSON.stringify(DEFAULT_SUGGESTIONS));
     }
     setSyncStatus('ok', 'Guardado en la nube');
+    window._gistLoadedOnce = true;
   } catch(e) {
     setSyncStatus('error', 'Error al cargar');
     console.error(e);
@@ -1389,6 +1390,35 @@ async function saveToGist() {
   if (!ghToken || !gistId) return;
   setSyncStatus('syncing', 'Guardando…');
   try {
+    // Safety check: never save if we have fewer recipes or products than what's in the Gist
+    // This prevents accidental overwrites with empty data
+    const currentRecetas = (suggestions.recetas || []).length;
+    const currentProductos = (suggestions.compra?.productos || []).length;
+
+    // Only do safety check if we have loaded data before (not first load)
+    if (window._gistLoadedOnce) {
+      const remoteRes = await gistRequest('GET', '/gists/' + gistId);
+      const remoteRaw = remoteRes.files[GIST_FILENAME]?.content;
+      if (remoteRaw) {
+        const remote = JSON.parse(remoteRaw);
+        const remoteRecetas = (remote.suggestions?.recetas || []).length;
+        const remoteProductos = (remote.suggestions?.compra?.productos || []).length;
+        const remoteDays = Object.keys(remote.data || {}).length;
+        const localDays = Object.keys(data || {}).length;
+
+        // Block save if it would delete significant data
+        if (remoteRecetas > currentRecetas + 2 ||
+            remoteProductos > currentProductos + 10 ||
+            remoteDays > localDays + 5) {
+          setSyncStatus('error', '⚠️ Guardado bloqueado — revisar datos');
+          console.warn('Save blocked: would overwrite more data than current state has', {
+            remoteRecetas, currentRecetas, remoteProductos, currentProductos
+          });
+          return;
+        }
+      }
+    }
+
     const content = JSON.stringify({ data, suggestions, savedAt: new Date().toISOString() }, null, 2);
     await gistRequest('PATCH', '/gists/' + gistId, {
       files: { [GIST_FILENAME]: { content } }
@@ -2565,13 +2595,20 @@ function getRecipesSummary() {
 
 async function callGemini(prompt) {
   const key = suggestions.asistente?.geminiKey || '';
-  if (!key) throw new Error('No hay clave de Gemini configurada');
-  const res = await fetch(GEMINI_URL_BASE + key, {
+  if (!key) throw new Error('No hay clave de API configurada');
+  const res = await fetch(AI_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + key,
+      'HTTP-Referer': 'https://olgaberrios.github.io/mi-olganizacion/',
+      'X-Title': 'Mi Olganización'
+    },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
+      model: 'openrouter/auto',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 2048,
+      temperature: 0.7
     })
   });
   const json = await res.json();
@@ -2579,7 +2616,7 @@ async function callGemini(prompt) {
     const msg = json?.error?.message || JSON.stringify(json);
     throw new Error('Error ' + res.status + ': ' + msg);
   }
-  return json.candidates?.[0]?.content?.parts?.[0]?.text || '(sin respuesta)';
+  return json.choices?.[0]?.message?.content || '(sin respuesta)';
 }
 
 function showLoading(titulo) {
