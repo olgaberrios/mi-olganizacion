@@ -1368,6 +1368,9 @@ async function gistRequest(method, path, body) {
   return res.json();
 }
 
+// Flag: only true after a successful load from Gist
+let gistFullyLoaded = false;
+
 async function loadFromGist() {
   setSyncStatus('syncing', 'Cargando…');
   try {
@@ -1375,11 +1378,17 @@ async function loadFromGist() {
     const raw = gist.files[GIST_FILENAME]?.content;
     if (raw) {
       const parsed = JSON.parse(raw);
-      data = parsed.data || {};
-      suggestions = parsed.suggestions || JSON.parse(JSON.stringify(DEFAULT_SUGGESTIONS));
+      // Only replace in-memory data if parsed data is non-empty
+      if (parsed.data && Object.keys(parsed.data).length > 0) {
+        data = parsed.data;
+      }
+      if (parsed.suggestions) {
+        // Merge carefully: keep existing keys, overlay parsed
+        suggestions = parsed.suggestions;
+      }
     }
-    setSyncStatus('ok', 'Guardado en la nube');
-    window._gistLoadedOnce = true;
+    gistFullyLoaded = true;
+    setSyncStatus('ok', 'Guardado en la nube ✓');
   } catch(e) {
     setSyncStatus('error', 'Error al cargar');
     console.error(e);
@@ -1388,35 +1397,48 @@ async function loadFromGist() {
 
 async function saveToGist() {
   if (!ghToken || !gistId) return;
+
+  // CRITICAL: never save if we haven't successfully loaded first
+  if (!gistFullyLoaded) {
+    console.warn('Save blocked: Gist not fully loaded yet');
+    setSyncStatus('error', '⚠️ No guardado — carga incompleta');
+    return;
+  }
+
   setSyncStatus('syncing', 'Guardando…');
   try {
-    // Safety check: never save if we have fewer recipes or products than what's in the Gist
-    // This prevents accidental overwrites with empty data
-    const currentRecetas = (suggestions.recetas || []).length;
-    const currentProductos = (suggestions.compra?.productos || []).length;
+    // Safety check: fetch remote and compare counts before saving
+    const remoteRes = await gistRequest('GET', '/gists/' + gistId);
+    const remoteRaw = remoteRes.files[GIST_FILENAME]?.content;
 
-    // Only do safety check if we have loaded data before (not first load)
-    if (window._gistLoadedOnce) {
-      const remoteRes = await gistRequest('GET', '/gists/' + gistId);
-      const remoteRaw = remoteRes.files[GIST_FILENAME]?.content;
-      if (remoteRaw) {
-        const remote = JSON.parse(remoteRaw);
-        const remoteRecetas = (remote.suggestions?.recetas || []).length;
-        const remoteProductos = (remote.suggestions?.compra?.productos || []).length;
-        const remoteDays = Object.keys(remote.data || {}).length;
-        const localDays = Object.keys(data || {}).length;
+    if (remoteRaw) {
+      const remote = JSON.parse(remoteRaw);
+      const remoteRecetas = (remote.suggestions?.recetas || []).length;
+      const remoteProductos = (remote.suggestions?.compra?.productos || []).length;
+      const remoteDays = Object.keys(remote.data || {}).length;
+      const localRecetas = (suggestions.recetas || []).length;
+      const localProductos = (suggestions.compra?.productos || []).length;
+      const localDays = Object.keys(data || {}).length;
 
-        // Block save if it would delete significant data
-        if (remoteRecetas > currentRecetas + 2 ||
-            remoteProductos > currentProductos + 10 ||
-            remoteDays > localDays + 5) {
-          setSyncStatus('error', '⚠️ Guardado bloqueado — revisar datos');
-          console.warn('Save blocked: would overwrite more data than current state has', {
-            remoteRecetas, currentRecetas, remoteProductos, currentProductos
-          });
-          return;
-        }
+      // Block if local has significantly less data than remote
+      if (remoteRecetas > localRecetas + 3 ||
+          remoteProductos > localProductos + 10 ||
+          (remoteDays > 10 && localDays < remoteDays - 10)) {
+        setSyncStatus('error', '⚠️ Guardado bloqueado — recarga la app');
+        console.warn('SAVE BLOCKED to prevent data loss', {
+          remoteRecetas, localRecetas,
+          remoteProductos, localProductos,
+          remoteDays, localDays
+        });
+        return;
       }
+
+      // Save a backup of current remote before overwriting
+      await gistRequest('PATCH', '/gists/' + gistId, {
+        files: {
+          'mi-semana-backup.json': { content: remoteRaw }
+        }
+      });
     }
 
     const content = JSON.stringify({ data, suggestions, savedAt: new Date().toISOString() }, null, 2);
@@ -1431,13 +1453,17 @@ async function saveToGist() {
 }
 
 function save() {
-  // Debounce: wait 1.5s after last change before saving to Gist
+  if (!gistFullyLoaded) {
+    console.warn('Save skipped: not loaded yet');
+    return;
+  }
   clearTimeout(syncTimer);
   setSyncStatus('syncing', 'Guardando…');
   syncTimer = setTimeout(saveToGist, 1500);
 }
 
 async function forcSync() {
+  if (!gistFullyLoaded) return;
   clearTimeout(syncTimer);
   await saveToGist();
 }
@@ -2074,20 +2100,58 @@ function openExport(mode) {
   });
 
   if (mode === 'all') {
+    // RECETAS por estado
     const recipes = getRecipes();
     if (recipes.length) {
-      text += '\n\n--- RECETAS ---\n';
-      [...recipes].sort((a,b) => a.name.localeCompare(b.name,'es')).forEach(r => {
-        const tags = [
-          ESTACION_LABELS[r.estacion] || '',
-          PROTEINA_LABELS[r.proteina] || '',
-          r.estado === 'probada' ? '✅ Probada' : r.estado === 'descongelar' ? '🧊 Descongelar' : '⭕ Sin probar'
-        ].filter(Boolean).join(' · ');
-        text += `\n- ${r.name}`;
-        if (tags) text += ` [${tags}]`;
-        if (r.link) text += ` (${r.link})`;
-        text += '\n';
+      const grupos = {
+        'esta-semana': '🎯 Esta semana',
+        'favorita': '⭐ Favoritas',
+        'probada': '✅ Probadas',
+        'descongelar': '🧊 Descongelar',
+        'sin-probar': '⭕ Sin probar',
+        '': '⭕ Sin probar',
+      };
+      const porEstado = {};
+      recipes.forEach(r => {
+        const g = r.estado || '';
+        if (!porEstado[g]) porEstado[g] = [];
+        porEstado[g].push(r);
       });
+
+      text += '\n\n--- RECETAS ---\n';
+      ['esta-semana','favorita','probada','descongelar','sin-probar',''].forEach(estado => {
+        const grupo = porEstado[estado];
+        if (!grupo?.length) return;
+        text += `\n${grupos[estado]}:\n`;
+        [...grupo].sort((a,b) => a.name.localeCompare(b.name,'es')).forEach(r => {
+          const tags = [ESTACION_LABELS[r.estacion]||'', PROTEINA_LABELS[r.proteina]||''].filter(Boolean).join(' · ');
+          text += `- ${r.name}`;
+          if (tags) text += ` [${tags}]`;
+          if (r.link) text += ` (${r.link})`;
+          text += '\n';
+        });
+      });
+    }
+
+    // LISTA DE LA COMPRA — solo los por comprar
+    const compra = getCompra();
+    const porComprar = compra.productos.filter(p => !p.comprado);
+    if (porComprar.length) {
+      text += '\n\n--- LISTA DE LA COMPRA (por comprar) ---\n';
+      compra.pasillos.forEach(pasillo => {
+        const items = porComprar.filter(p => p.pasillo === pasillo);
+        if (!items.length) return;
+        text += `\n${pasillo}:\n`;
+        items.forEach(p => {
+          text += `- ${p.name}${p.cantidad ? ' ('+p.cantidad+')' : ''}${p.basico ? ' ⭐' : ''}\n`;
+        });
+      });
+    }
+
+    // API KEY del asistente (para recuperarla si hace falta)
+    const apiKey = suggestions.asistente?.geminiKey;
+    if (apiKey) {
+      text += `\n\n--- CONFIGURACIÓN ---\nAPI key del Asistente: ${apiKey}\n`;
     }
   }
 
