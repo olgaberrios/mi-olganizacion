@@ -1032,7 +1032,8 @@
     </div>
   </div>
   <div class="tabs">
-    <button class="tab active" onclick="showView('week', this)">📅 Semana</button>
+    <button class="tab active" onclick="showView('comidas', this)">🍽️ Comidas</button>
+    <button class="tab" onclick="showView('deporte', this)">🏋️ Deporte</button>
     <button class="tab" onclick="showView('suggestions', this)">💡 Recetas</button>
     <button class="tab" onclick="showView('compra', this)">🛒 Compra</button>
     <button class="tab" onclick="showView('asistente', this)">✨ Asistente</button>
@@ -1040,14 +1041,23 @@
 </header>
 
 <main>
-  <!-- WEEK VIEW -->
-  <div id="view-week">
+  <!-- COMIDAS VIEW -->
+  <div id="view-comidas">
     <div class="export-bar">
       <button class="btn-export" onclick="openExport('week')">📤 Exportar semana</button>
       <button class="btn-export" onclick="openExport('all')">📋 Exportar todo</button>
       <button class="btn-export" style="grid-column:1/-1;background:var(--accent-light);color:var(--accent);border-color:var(--accent)" onclick="showGistInfo()">🔗 Ver mi Gist ID</button>
     </div>
-    <div id="week-days"></div>
+    <div id="week-days-comidas"></div>
+  </div>
+
+  <!-- DEPORTE VIEW -->
+  <div id="view-deporte" style="display:none">
+    <div class="export-bar" style="grid-template-columns:1fr 1fr">
+      <button class="btn-export" onclick="openExport('week')">📤 Exportar semana</button>
+      <button class="btn-export" onclick="openExport('all')">📋 Exportar todo</button>
+    </div>
+    <div id="week-days-deporte"></div>
   </div>
 
   <!-- SUGGESTIONS VIEW -->
@@ -1278,13 +1288,6 @@
     <div class="field-label">🧺 Ingredientes</div>
     <textarea class="asist-textarea" id="edit-ingredientes" rows="4"
       placeholder="Ej: garbanzos, pepino, tomate cherry, queso feta, aceitunas..."></textarea>
-    <div style="margin-bottom:12px">
-      <div class="field-label" style="margin-bottom:6px">✨ Extraer ingredientes de Instagram</div>
-      <p style="font-size:0.78rem;color:var(--muted);margin-bottom:8px;line-height:1.5">Copia la descripción del post de Instagram y pégala aquí. Gemini extraerá los ingredientes automáticamente.</p>
-      <textarea class="asist-textarea" id="edit-descripcion-ig" rows="3"
-        placeholder="Pega aquí la descripción del post de Instagram..." style="margin-bottom:8px"></textarea>
-      <button class="btn-secondary" style="width:100%;color:var(--accent);border-color:var(--accent)" onclick="extraerIngredientes()">✨ Extraer ingredientes</button>
-    </div>
 
     <div class="modal-actions" style="margin-top:14px">
       <button class="btn-secondary" onclick="closeModal('editModal')">Cancelar</button>
@@ -1600,13 +1603,15 @@ function getDayData(key) {
 function showView(view, btn) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
-  document.getElementById('view-week').style.display = view === 'week' ? 'block' : 'none';
+  document.getElementById('view-comidas').style.display = view === 'comidas' ? 'block' : 'none';
+  document.getElementById('view-deporte').style.display = view === 'deporte' ? 'block' : 'none';
   document.getElementById('view-suggestions').style.display = view === 'suggestions' ? 'block' : 'none';
   document.getElementById('view-compra').style.display = view === 'compra' ? 'block' : 'none';
   document.getElementById('view-asistente').style.display = view === 'asistente' ? 'block' : 'none';
   if (view === 'suggestions') renderSuggestions();
   if (view === 'compra') renderCompra();
   if (view === 'asistente') initAsistente();
+  if (view === 'comidas' || view === 'deporte') renderWeek();
 }
 
 function changeWeek(dir) {
@@ -1622,8 +1627,10 @@ function renderWeek() {
   document.getElementById('weekLabel').textContent = `${fmt(weekStart)} – ${fmt(weekEnd)}`;
 
   const today = dateKey(new Date());
-  const container = document.getElementById('week-days');
-  container.innerHTML = '';
+  const comidasContainer = document.getElementById('week-days-comidas');
+  const deporteContainer = document.getElementById('week-days-deporte');
+  if (comidasContainer) comidasContainer.innerHTML = '';
+  if (deporteContainer) deporteContainer.innerHTML = '';
 
   for (let i = 0; i < 7; i++) {
     const d = new Date(weekStart);
@@ -1632,38 +1639,34 @@ function renderWeek() {
     const dayData = getDayData(key);
     const isToday = key === today;
 
-    const card = document.createElement('div');
-    card.className = 'day-card' + (isToday ? ' today' : '') + (dayData.done ? ' done' : '');
-    card.id = 'card-' + key;
-
-    card.innerHTML = `
-      <div class="day-header" onclick="toggleDay('${key}')">
+    const dayHeader = (suffix) => `
+      <div class="day-header" onclick="toggleDay('${key}-${suffix}')">
         <div style="flex:1;min-width:0">
           <div class="day-title">
             ${isToday ? '<span class="today-dot"></span>' : ''}
             <span class="day-name">${DAYS_ES[d.getDay()]}</span>
             <span class="day-date">${d.getDate()} ${MONTHS_ES[d.getMonth()]}</span>
           </div>
-          <div class="day-preview" id="preview-${key}"></div>
+          <div class="day-preview" id="preview-${key}-${suffix}"></div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-          <span class="done-badge ${dayData.done ? 'active' : ''}" id="done-${key}"
-            onclick="event.stopPropagation();toggleDone('${key}')">
+          <span class="done-badge ${dayData.done ? 'active' : ''}" id="done-${key}-${suffix}"
+            onclick="event.stopPropagation();toggleDone('${key}','${suffix}')">
             ${dayData.done ? '✅ Hecho' : '○ Pendiente'}
           </span>
           <span class="day-chevron">▾</span>
         </div>
       </div>
-      <div class="day-body" id="body-${key}">
-        <div class="day-subtabs">
-          <button class="day-subtab active" onclick="showDayTab('${key}','sport',this)">🏋️ Deporte</button>
-          <button class="day-subtab" onclick="showDayTab('${key}','food',this)">🍽️ Comida</button>
-        </div>
-        <div id="tab-sport-${key}">
-          <div class="field-label" style="margin-top:10px">🏋️ Ejercicio</div>
-          <div class="exercise-grid" id="ex-${key}"></div>
-        </div>
-        <div id="tab-food-${key}" style="display:none">
+    `;
+
+    // ── COMIDAS CARD ──
+    if (comidasContainer) {
+      const foodCard = document.createElement('div');
+      foodCard.className = 'day-card' + (isToday ? ' today' : '') + (dayData.done ? ' done' : '');
+      foodCard.id = 'card-' + key + '-food';
+      foodCard.innerHTML = `
+        ${dayHeader('food')}
+        <div class="day-body" id="body-${key}-food">
           <div class="field-label" style="margin-top:10px">☀️ Comida</div>
           <div class="autocomplete-wrap">
             <textarea class="text-field" rows="2" placeholder="¿Qué comes hoy?"
@@ -1675,8 +1678,7 @@ function renderWeek() {
           </div>
           <div class="link-row">
             <input type="url" placeholder="🔗 Link receta comida (opcional)"
-              value="${dayData.comidaLink||''}"
-              id="link-${key}-comida"
+              value="${dayData.comidaLink||''}" id="link-${key}-comida"
               oninput="saveField('${key}','comidaLink',this.value)" />
             ${dayData.comidaLink ? `<a href="${dayData.comidaLink}" target="_blank">🔗</a>` : '<span style="width:20px"></span>'}
           </div>
@@ -1691,21 +1693,35 @@ function renderWeek() {
           </div>
           <div class="link-row">
             <input type="url" placeholder="🔗 Link receta cena (opcional)"
-              value="${dayData.cenaLink||''}"
-              id="link-${key}-cena"
+              value="${dayData.cenaLink||''}" id="link-${key}-cena"
               oninput="saveField('${key}','cenaLink',this.value)" />
             ${dayData.cenaLink ? `<a href="${dayData.cenaLink}" target="_blank">🔗</a>` : '<span style="width:20px"></span>'}
           </div>
-          <div class="field-label">📝 Notas <span style="text-transform:none;font-weight:400;opacity:0.7">(opcional — peso, sensaciones, chuches...)</span></div>
-          <textarea class="text-field" rows="2" placeholder="Cualquier cosa que quieras anotar hoy..."
+          <div class="field-label">📝 Notas <span style="text-transform:none;font-weight:400;opacity:0.7">(opcional)</span></div>
+          <textarea class="text-field" rows="2" placeholder="Peso, sensaciones, chuches..."
             oninput="saveField('${key}','notas',this.value)">${dayData.notas||''}</textarea>
         </div>
-      </div>
-    `;
+      `;
+      comidasContainer.appendChild(foodCard);
+      updatePreview(key, dayData, 'food');
+    }
 
-    container.appendChild(card);
-    renderExercises(key, dayData);
-    updatePreview(key, dayData);
+    // ── DEPORTE CARD ──
+    if (deporteContainer) {
+      const sportCard = document.createElement('div');
+      sportCard.className = 'day-card' + (isToday ? ' today' : '') + (dayData.done ? ' done' : '');
+      sportCard.id = 'card-' + key + '-sport';
+      sportCard.innerHTML = `
+        ${dayHeader('sport')}
+        <div class="day-body" id="body-${key}-sport">
+          <div class="field-label" style="margin-top:10px">🏋️ Ejercicio</div>
+          <div class="exercise-grid" id="ex-${key}"></div>
+        </div>
+      `;
+      deporteContainer.appendChild(sportCard);
+      renderExercises(key, dayData);
+      updatePreview(key, dayData, 'sport');
+    }
   }
 }
 
@@ -1781,92 +1797,83 @@ function saveField(key, field, val) {
   updatePreview(key, getDayData(key));
 }
 
-function toggleDone(key) {
+function toggleDone(key, suffix) {
   const d = getDayData(key);
   d.done = !d.done;
   data[key] = d;
   save();
-  const badge = document.getElementById('done-' + key);
-  if (badge) {
-    badge.className = 'done-badge' + (d.done ? ' active' : '');
-    badge.textContent = d.done ? '✅ Hecho' : '○ Pendiente';
-  }
-  const card = document.getElementById('card-' + key);
-  if (card) card.classList.toggle('done', d.done);
+  // Update both cards (food and sport)
+  ['food','sport'].forEach(s => {
+    const badge = document.getElementById(`done-${key}-${s}`);
+    if (badge) {
+      badge.className = 'done-badge' + (d.done ? ' active' : '');
+      badge.textContent = d.done ? '✅ Hecho' : '○ Pendiente';
+    }
+    const card = document.getElementById(`card-${key}-${s}`);
+    if (card) card.classList.toggle('done', d.done);
+  });
 }
 
-function showDayTab(key, tab, btn) {
-  document.querySelectorAll(`#body-${key} .day-subtab`).forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById(`tab-sport-${key}`).style.display = tab === 'sport' ? 'block' : 'none';
-  document.getElementById(`tab-food-${key}`).style.display = tab === 'food' ? 'block' : 'none';
-}
+function updatePreview(key, dayData, suffix) {
+  // If suffix given, update only that preview; otherwise update both
+  const suffixes = suffix ? [suffix] : ['food','sport'];
+  suffixes.forEach(s => {
+    const preview = document.getElementById(`preview-${key}-${s}`);
+    if (!preview) return;
+    preview.innerHTML = '';
 
-function toggleDay(key) {
-  const card = document.getElementById('card-' + key);
-  const body = document.getElementById('body-' + key);
-  if (!card || !body) return;
-  const isOpen = body.classList.contains('open');
-  body.classList.toggle('open', !isOpen);
-  card.classList.toggle('open', !isOpen);
-}
-
-function updatePreview(key, dayData) {
-  const preview = document.getElementById('preview-' + key);
-  if (!preview) return;
-  preview.innerHTML = '';
-
-  const checked = Object.entries(dayData.exercises || {})
-    .filter(([k,v]) => v && v.checked)
-    .map(([k,v]) => {
-      const ex = EXERCISES.find(e=>e.id===k);
-      let label = ex?.label || k;
-      if (ex?.km && v.km) label += ' ' + v.km + 'km';
-      if (ex?.text && v.text) label += ': ' + v.text;
-      return label;
-    });
-
-  if (checked.length) {
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;width:100%;margin-bottom:4px';
-    checked.forEach(l => {
-      const p = document.createElement('span');
-      p.className = 'preview-pill';
-      p.textContent = l;
-      row.appendChild(p);
-    });
-    preview.appendChild(row);
-  }
-
-  const makeFoodRow = (emoji, text, link) => {
-    if (!text) return;
-    const pill = document.createElement('div');
-    pill.className = 'preview-pill food';
-    const linkHtml = link
-      ? `<a class="preview-food-link" href="${link}" target="_blank" onclick="event.stopPropagation()">🔗</a>`
-      : '';
-    pill.innerHTML = `<div class="preview-food-row">
-      <span class="preview-food-label">${emoji}</span>
-      <span class="preview-food-text">${text}</span>
-      ${linkHtml}
-    </div>`;
-    preview.appendChild(pill);
-  };
-
-  makeFoodRow('☀️', dayData.comida, dayData.comidaLink);
-  makeFoodRow('🌙', dayData.cena, dayData.cenaLink);
-
-  if (dayData.notas) {
-    const pill = document.createElement('div');
-    pill.className = 'preview-pill food';
-    pill.style.background = '#fff3e0';
-    pill.style.color = '#8a5a00';
-    pill.innerHTML = `<div class="preview-food-row">
-      <span class="preview-food-label">📝</span>
-      <span class="preview-food-text">${dayData.notas}</span>
-    </div>`;
-    preview.appendChild(pill);
-  }
+    if (s === 'sport') {
+      // Sport preview: exercise pills only
+      const checked = Object.entries(dayData.exercises || {})
+        .filter(([k,v]) => v && v.checked)
+        .map(([k,v]) => {
+          const ex = EXERCISES.find(e=>e.id===k);
+          let label = ex?.label || k;
+          if (ex?.km && v.km) label += ' ' + v.km + 'km';
+          if (ex?.text && v.text) label += ': ' + v.text;
+          return label;
+        });
+      if (checked.length) {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;width:100%;margin-bottom:4px';
+        checked.forEach(l => {
+          const p = document.createElement('span');
+          p.className = 'preview-pill';
+          p.textContent = l;
+          row.appendChild(p);
+        });
+        preview.appendChild(row);
+      }
+    } else {
+      // Food preview: comida, cena, notas
+      const makeFoodRow = (emoji, text, link) => {
+        if (!text) return;
+        const pill = document.createElement('div');
+        pill.className = 'preview-pill food';
+        const linkHtml = link
+          ? `<a class="preview-food-link" href="${link}" target="_blank" onclick="event.stopPropagation()">🔗</a>`
+          : '';
+        pill.innerHTML = `<div class="preview-food-row">
+          <span class="preview-food-label">${emoji}</span>
+          <span class="preview-food-text">${text}</span>
+          ${linkHtml}
+        </div>`;
+        preview.appendChild(pill);
+      };
+      makeFoodRow('☀️', dayData.comida, dayData.comidaLink);
+      makeFoodRow('🌙', dayData.cena, dayData.cenaLink);
+      if (dayData.notas) {
+        const pill = document.createElement('div');
+        pill.className = 'preview-pill food';
+        pill.style.cssText = 'background:#fff3e0;color:#8a5a00';
+        pill.innerHTML = `<div class="preview-food-row">
+          <span class="preview-food-label">📝</span>
+          <span class="preview-food-text">${dayData.notas}</span>
+        </div>`;
+        preview.appendChild(pill);
+      }
+    }
+  });
 }
 
 // ─── AUTOCOMPLETE ─────────────────────────────────────────
