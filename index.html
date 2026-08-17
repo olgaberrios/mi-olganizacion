@@ -1036,7 +1036,6 @@
     <button class="tab" onclick="showView('deporte', this)">🏋️ Deporte</button>
     <button class="tab" onclick="showView('suggestions', this)">💡 Recetas</button>
     <button class="tab" onclick="showView('compra', this)">🛒 Compra</button>
-    <button class="tab" onclick="showView('asistente', this)">✨ Asistente</button>
   </div>
 </header>
 
@@ -1046,7 +1045,8 @@
     <div class="export-bar">
       <button class="btn-export" onclick="openExport('week')">📤 Exportar semana</button>
       <button class="btn-export" onclick="openExport('all')">📋 Exportar todo</button>
-      <button class="btn-export" style="grid-column:1/-1;background:var(--accent-light);color:var(--accent);border-color:var(--accent)" onclick="showGistInfo()">🔗 Ver mi Gist ID</button>
+      <button class="btn-export" style="background:var(--accent-light);color:var(--accent);border-color:var(--accent)" onclick="showGistInfo()">🔗 Gist ID</button>
+      <button class="btn-export" style="background:#f0ebfa;color:#7b5ea7;border-color:#7b5ea7" onclick="toggleAsistente()">✨ Asistente</button>
     </div>
     <div id="week-days-comidas"></div>
   </div>
@@ -1723,6 +1723,34 @@ function renderWeek() {
       updatePreview(key, dayData, 'sport');
     }
   }
+}
+
+function toggleAsistente() {
+  const el = document.getElementById('view-asistente');
+  const isVisible = el.style.display !== 'none';
+  // Hide all main views first
+  ['view-comidas','view-deporte','view-suggestions','view-compra'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  if (isVisible) {
+    // Was showing asistente — go back to comidas
+    document.getElementById('view-comidas').style.display = 'block';
+    document.querySelector('.tab').classList.add('active');
+    el.style.display = 'none';
+  } else {
+    el.style.display = 'block';
+    initAsistente();
+  }
+}
+
+function toggleDay(cardId) {
+  const card = document.getElementById('card-' + cardId);
+  const body = document.getElementById('body-' + cardId);
+  if (!card || !body) return;
+  const isOpen = card.classList.contains('open');
+  card.classList.toggle('open', !isOpen);
+  body.classList.toggle('open', !isOpen);
 }
 
 function renderExercises(key, dayData) {
