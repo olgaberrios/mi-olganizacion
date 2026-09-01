@@ -2167,8 +2167,16 @@ function openExport(mode) {
       });
 
     if (exChecked.length) text += `• Ejercicio: ${exChecked.join(', ')}\n`;
-    if (d.comida) text += `• Comida: ${d.comida}${d.comidaLink ? ' ('+d.comidaLink+')' : ''}\n`;
-    if (d.cena) text += `• Cena: ${d.cena}${d.cenaLink ? ' ('+d.cenaLink+')' : ''}\n`;
+    if (d.comida) {
+      text += `• Comida: ${d.comida}${d.comidaLink ? ' ('+d.comidaLink+')' : ''}\n`;
+      const receta = getRecipes().find(r => r.name && d.comida.toLowerCase().includes(r.name.toLowerCase().slice(0,20)));
+      if (receta?.ingredientes) text += `  Ingredientes: ${receta.ingredientes}\n`;
+    }
+    if (d.cena) {
+      text += `• Cena: ${d.cena}${d.cenaLink ? ' ('+d.cenaLink+')' : ''}\n`;
+      const receta = getRecipes().find(r => r.name && d.cena.toLowerCase().includes(r.name.toLowerCase().slice(0,20)));
+      if (receta?.ingredientes) text += `  Ingredientes: ${receta.ingredientes}\n`;
+    }
     if (d.notas) text += `• Notas: ${d.notas}\n`;
   });
 
