@@ -1066,9 +1066,10 @@
     <!-- Filters -->
     <div class="filter-bar">
       <div class="filter-group">
-        <div class="filter-label">Estación</div>
+        <div class="filter-label">Momento / Estación</div>
         <div class="filter-pills" id="filter-estacion">
           <button class="fpill active" data-val="">Todas</button>
+          <button class="fpill" data-val="cena">🌙 Cena</button>
           <button class="fpill" data-val="verano">☀️ Verano</button>
           <button class="fpill" data-val="invierno">❄️ Invierno</button>
           <button class="fpill" data-val="todo">🗓️ Todo el año</button>
@@ -1258,8 +1259,9 @@
     <input type="text" id="edit-name" placeholder="Nombre de la receta..." />
     <input type="url" id="edit-link" placeholder="Link de Instagram (opcional)..." />
 
-    <div class="field-label" style="margin-top:4px">Estación</div>
+    <div class="field-label" style="margin-top:4px">Momento / Estación</div>
     <div class="tag-selector" id="edit-estacion">
+      <button class="tag-opt" data-val="cena">🌙 Cena</button>
       <button class="tag-opt" data-val="verano">☀️ Verano</button>
       <button class="tag-opt" data-val="invierno">❄️ Invierno</button>
       <button class="tag-opt" data-val="todo">🗓️ Todo el año</button>
@@ -1959,7 +1961,7 @@ function hideAutocomplete(listId) {
 }
 
 // ─── RECIPES ──────────────────────────────────────────────
-const ESTACION_LABELS = { verano: '☀️ Verano', invierno: '❄️ Invierno', todo: '🗓️ Todo el año' };
+const ESTACION_LABELS = { cena: '🌙 Cena', verano: '☀️ Verano', invierno: '❄️ Invierno', todo: '🗓️ Todo el año' };
 const PROTEINA_LABELS = { legumbres: '🫘 Legumbres', soja: '🌱 Soja', tofu: '⬜ Tofu', huevo: '🍳 Huevo', queso: '🧀 Queso', verduras: '🥬 Solo verduras', heura: '🍗 Heura' };
 const ESTADO_LABELS = { probada: '✅ Probada', favorita: '⭐ Favorita', 'esta-semana': '🎯 Esta semana', descongelar: '🧊 Descongelar' };
 
