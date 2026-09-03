@@ -1924,10 +1924,9 @@ function showAutocomplete(textarea, key, field) {
   matches.forEach(r => {
     const item = document.createElement('div');
     item.className = 'autocomplete-item';
-    const tags = [
-      ESTACION_LABELS[r.estacion] || '',
-      PROTEINA_LABELS[r.proteina] || '',
-    ].filter(Boolean).join(' · ');
+    const estArr = Array.isArray(r.estacion) ? r.estacion : (r.estacion ? [r.estacion] : []);
+    const estLabel = estArr.map(e => ESTACION_LABELS[e]||e).filter(Boolean).join('+');
+    const tags = [estLabel, PROTEINA_LABELS[r.proteina] || ''].filter(Boolean).join(' · ');
     item.innerHTML = `
       <div class="autocomplete-item-name">${r.name}</div>
       ${tags ? `<div class="autocomplete-item-tags">${tags}</div>` : ''}
@@ -1979,7 +1978,10 @@ function renderSuggestions() {
   const isSearching = searchQuery.length > 0;
 
   let filtered = recipes.filter(r => {
-    if (activeFilters.estacion && r.estacion !== activeFilters.estacion) return false;
+    if (activeFilters.estacion) {
+      const estArr = Array.isArray(r.estacion) ? r.estacion : (r.estacion ? [r.estacion] : []);
+      if (!estArr.includes(activeFilters.estacion)) return false;
+    }
     if (activeFilters.proteina && r.proteina !== activeFilters.proteina) return false;
     if (activeFilters.estado === 'sin-probar' && (r.estado === 'probada' || r.estado === 'favorita' || r.estado === 'esta-semana' || r.estado === 'descongelar')) return false;
     if (activeFilters.estado === 'esta-semana' && r.estado !== 'esta-semana') return false;
@@ -2008,7 +2010,10 @@ function renderSuggestions() {
     card.className = 'recipe-card' + (item.estado ? ' ' + item.estado : '');
 
     const tags = [];
-    if (item.estacion) tags.push(`<span class="recipe-tag estacion">${ESTACION_LABELS[item.estacion] || item.estacion}</span>`);
+    const estArr = Array.isArray(item.estacion) ? item.estacion : (item.estacion ? [item.estacion] : []);
+    estArr.forEach(e => {
+      if (ESTACION_LABELS[e]) tags.push(`<span class="recipe-tag estacion">${ESTACION_LABELS[e]}</span>`);
+    });
     if (item.proteina) tags.push(`<span class="recipe-tag proteina">${PROTEINA_LABELS[item.proteina] || item.proteina}</span>`);
     if (item.estado === 'esta-semana') tags.push(`<span class="recipe-tag estado-esta-semana">🎯 Esta semana</span>`);
     if (item.estado === 'probada') tags.push(`<span class="recipe-tag estado-probada">✅ Probada</span>`);
@@ -2077,20 +2082,20 @@ function clearTagSelectors() {
   document.querySelectorAll('.tag-opt').forEach(b => b.classList.remove('selected'));
 }
 
-function selectTag(groupId, val) {
-  const btn = document.querySelector(`#${groupId} [data-val="${val}"]`);
-  if (btn) btn.classList.add('selected');
-}
-
 function setupTagSelectors() {
   document.querySelectorAll('.tag-selector').forEach(sel => {
+    const isMulti = sel.id === 'edit-estacion';
     sel.addEventListener('click', e => {
       const btn = e.target.closest('.tag-opt');
       if (!btn) return;
-      // Single select per group
-      sel.querySelectorAll('.tag-opt').forEach(b => b.classList.remove('selected'));
-      btn.classList.toggle('selected', !btn.classList.contains('selected'));
-      // re-add if we just removed (toggle off means deselect — allowed)
+      if (isMulti) {
+        // Multi-select: toggle individual buttons
+        btn.classList.toggle('selected');
+      } else {
+        // Single-select: deselect all then toggle clicked
+        sel.querySelectorAll('.tag-opt').forEach(b => b.classList.remove('selected'));
+        btn.classList.toggle('selected', !btn.classList.contains('selected'));
+      }
     });
   });
 }
@@ -2100,11 +2105,25 @@ function getSelectedTag(groupId) {
   return sel ? sel.dataset.val : '';
 }
 
+function getSelectedTags(groupId) {
+  return Array.from(document.querySelectorAll(`#${groupId} .tag-opt.selected`))
+    .map(b => b.dataset.val);
+}
+
+function selectTag(groupId, val) {
+  // val can be string or array
+  const vals = Array.isArray(val) ? val : (val ? [val] : []);
+  vals.forEach(v => {
+    const btn = document.querySelector(`#${groupId} [data-val="${v}"]`);
+    if (btn) btn.classList.add('selected');
+  });
+}
+
 function saveRecipe() {
   const name = document.getElementById('edit-name').value.trim();
   if (!name) return;
   const link = document.getElementById('edit-link').value.trim();
-  const estacion = getSelectedTag('edit-estacion');
+  const estacion = getSelectedTags('edit-estacion'); // array
   const proteina = getSelectedTag('edit-proteina');
   const estado   = getSelectedTag('edit-estado');
   const ingredientes = document.getElementById('edit-ingredientes').value.trim();
@@ -2207,7 +2226,8 @@ function openExport(mode) {
         if (!grupo?.length) return;
         text += `\n${grupos[estado]}:\n`;
         [...grupo].sort((a,b) => a.name.localeCompare(b.name,'es')).forEach(r => {
-          const tags = [ESTACION_LABELS[r.estacion]||'', PROTEINA_LABELS[r.proteina]||''].filter(Boolean).join(' · ');
+          const estArr2 = Array.isArray(r.estacion) ? r.estacion : (r.estacion ? [r.estacion] : []);
+          const tags = [estArr2.map(e=>ESTACION_LABELS[e]||e).join('+'), PROTEINA_LABELS[r.proteina]||''].filter(Boolean).join(' · ');
           text += `- ${r.name}`;
           if (tags) text += ` [${tags}]`;
           if (r.link) text += ` (${r.link})`;
