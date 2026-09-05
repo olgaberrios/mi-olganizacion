@@ -2251,11 +2251,7 @@ function openExport(mode) {
       });
     }
 
-    // API KEY del asistente (para recuperarla si hace falta)
-    const apiKey = suggestions.asistente?.geminiKey;
-    if (apiKey) {
-      text += `\n\n--- CONFIGURACIÓN ---\nAPI key del Asistente: ${apiKey}\n`;
-    }
+    // API key guardada solo en localStorage por seguridad — no se exporta
   }
 
   document.getElementById('exportText').value = text.trim();
@@ -2597,7 +2593,7 @@ function saveProducto() {
 const AI_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 async function callGemini(prompt) {
-  const key = suggestions.asistente?.geminiKey || '';
+  const key = localStorage.getItem('openrouter_key') || '';
   if (!key) throw new Error('No hay clave de API configurada');
   const res = await fetch(AI_URL, {
     method: 'POST',
@@ -2650,13 +2646,14 @@ Incluye también propuesta de ejercicio:
 - Paseo diario`;
 
 function initAsistente() {
+  // Key lives in localStorage only — never in the Gist
+  const key = localStorage.getItem('openrouter_key') || '';
   const saved = suggestions.asistente || {};
-  const hasKey = !!saved.geminiKey;
 
-  document.getElementById('asist-setup').style.display = hasKey ? 'none' : 'block';
-  document.getElementById('asist-main').style.display = hasKey ? 'block' : 'none';
+  document.getElementById('asist-setup').style.display = key ? 'none' : 'block';
+  document.getElementById('asist-main').style.display = key ? 'block' : 'none';
 
-  if (hasKey) {
+  if (key) {
     const ta = document.getElementById('plan-indicaciones');
     if (ta) ta.value = saved.indicaciones ?? DEFAULT_INDICACIONES;
     if (saved.altura) document.getElementById('val-altura').value = saved.altura;
@@ -2668,7 +2665,6 @@ async function guardarGeminiKey() {
   if (!key) return;
   document.getElementById('asist-setup-error').style.display = 'none';
 
-  // Test the key with a minimal call
   try {
     const res = await fetch(AI_URL, {
       method: 'POST',
@@ -2691,9 +2687,13 @@ async function guardarGeminiKey() {
       document.getElementById('asist-setup-error').style.display = 'block';
       return;
     }
-    if (!suggestions.asistente) suggestions.asistente = {};
-    suggestions.asistente.geminiKey = key;
-    save();
+    // Save ONLY to localStorage, never to Gist
+    localStorage.setItem('openrouter_key', key);
+    // Clean up any old key that may have ended up in suggestions
+    if (localStorage.getItem('openrouter_key')) {
+      delete suggestions.asistente.geminiKey;
+      save();
+    }
     initAsistente();
   } catch(e) {
     document.getElementById('asist-setup-error').textContent = e.message || 'Error desconocido';
@@ -2702,9 +2702,7 @@ async function guardarGeminiKey() {
 }
 
 function cambiarGeminiKey() {
-  if (!suggestions.asistente) suggestions.asistente = {};
-  suggestions.asistente.geminiKey = '';
-  save();
+  localStorage.removeItem('openrouter_key');
   document.getElementById('asist-gemini-key-input').value = '';
   initAsistente();
 }
@@ -2772,7 +2770,7 @@ function getRecipesSummary() {
 }
 
 async function callGemini(prompt) {
-  const key = suggestions.asistente?.geminiKey || '';
+  const key = localStorage.getItem('openrouter_key') || '';
   if (!key) throw new Error('No hay clave de API configurada');
   const res = await fetch(AI_URL, {
     method: 'POST',
