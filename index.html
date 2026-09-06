@@ -1400,6 +1400,8 @@ function checkLocalFileWarning() {
 
 async function init() {
   checkLocalFileWarning();
+  setupFilters();
+  setupTagSelectors();
 
   ghToken = localStorage.getItem('gh_token') || '';
   // Restore gist ID from localStorage only — do NOT silently fall back to
@@ -2410,6 +2412,9 @@ function saveProducto() {
   renderCompra();
 }
 
+// init() estaba definida pero nunca se llamaba — sin esto, la app nunca
+// cargaba el Gist ni activaba los listeners de filtros/etiquetas.
+init();
 </script>
 </body>
 </html>
