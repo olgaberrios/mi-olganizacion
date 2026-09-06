@@ -905,9 +905,17 @@
     </ol>
 
     <input type="password" id="setupToken" placeholder="Token de GitHub..." />
+
+    <p style="margin-top:14px;font-size:0.85rem;color:var(--muted)">¿Ya tienes datos en otro dispositivo? Pega aquí el ID de tu Gist para conectarte a él (déjalo vacío para crear uno nuevo):</p>
+    <input type="text" id="setupGistId" placeholder="ID de Gist existente (opcional)..." />
+
     <div class="setup-error" id="setupError">Token inválido o sin permisos de Gist. Inténtalo de nuevo.</div>
     <button class="btn-primary" onclick="setupGist()">Conectar y empezar →</button>
   </div>
+</div>
+
+<div id="fileWarningBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#c0392b;color:#fff;text-align:center;font-family:'DM Sans',sans-serif;font-weight:600;font-size:0.85rem;padding:10px 16px;box-shadow:0 2px 10px rgba(0,0,0,0.25)">
+  ⚠️ OJO, ESTÁS EN LOCAL (file://) — los cambios NO se sincronizarán con el resto de tus dispositivos. Sube este archivo a GitHub y ábrelo desde la URL online antes de usarlo.
 </div>
 
 <header>
@@ -1382,18 +1390,34 @@ async function setupGist() {
 // Tu Gist ID — guardado aquí como seguridad por si el localStorage se borra
 const MY_GIST_ID = '6f53475100b9d14bbf32d4a8e9a22748';
 
+function checkLocalFileWarning() {
+  if (location.protocol === 'file:') {
+    const banner = document.getElementById('fileWarningBanner');
+    banner.style.display = 'block';
+    document.body.style.paddingTop = banner.offsetHeight + 'px';
+  }
+}
+
 async function init() {
+  checkLocalFileWarning();
+
   ghToken = localStorage.getItem('gh_token') || '';
-  // Always restore gist ID from constant if missing
-  gistId = localStorage.getItem('gist_id') || MY_GIST_ID;
-  if (gistId) localStorage.setItem('gist_id', gistId);
+  // Restore gist ID from localStorage only — do NOT silently fall back to
+  // MY_GIST_ID here, or a fresh device (or you, after clearing localStorage)
+  // will never be asked whether it wants your existing Gist.
+  gistId = localStorage.getItem('gist_id') || '';
 
   if (ghToken && gistId) {
     document.getElementById('setupScreen').style.display = 'none';
     await loadFromGist();
     renderWeek();
+  } else {
+    // Setup screen stays visible. Pre-fill (but don't force) your known
+    // Gist ID so a new device can just tap "Conectar" to restore your data,
+    // while still being free to clear it and create a separate Gist.
+    const gistIdInput = document.getElementById('setupGistId');
+    if (gistIdInput) gistIdInput.value = MY_GIST_ID;
   }
-  // else: setup screen stays visible (only needs token now)
 }
 
 // ─── DATE UTILS ───────────────────────────────────────────
