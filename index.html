@@ -1294,6 +1294,7 @@ async function saveToGist() {
 
 function save() {
   if (!gistFullyLoaded) {
+    setSyncStatus('error', '⚠️ No cargado — recarga la app');
     console.warn('Save skipped: not loaded yet');
     return;
   }
@@ -1840,10 +1841,9 @@ function setupFilters() {
   document.addEventListener('click', e => {
     const pill = e.target.closest('.fpill');
     if (!pill) return;
-    const group = pill.closest('[id^="filter-"]');
+    const group = pill.closest('#filter-estacion, #filter-proteina, #filter-estado');
     if (!group) return;
     const groupName = group.id.replace('filter-', '');
-    if (!['estacion','proteina','estado'].includes(groupName)) return;
     group.querySelectorAll('.fpill').forEach(p => p.classList.remove('active'));
     pill.classList.add('active');
     activeFilters[groupName] = pill.dataset.val;
@@ -1880,7 +1880,6 @@ function clearTagSelectors() {
 }
 
 function setupTagSelectors() {
-  // Use event delegation on document so it works even when modals are dynamically shown
   document.addEventListener('click', e => {
     const btn = e.target.closest('.tag-opt');
     if (!btn) return;
@@ -1890,8 +1889,10 @@ function setupTagSelectors() {
     if (isMulti) {
       btn.classList.toggle('selected');
     } else {
+      // Only clear within THIS selector, not all selectors
+      const wasSelected = btn.classList.contains('selected');
       sel.querySelectorAll('.tag-opt').forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
+      if (!wasSelected) btn.classList.add('selected');
     }
   });
 }
