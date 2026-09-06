@@ -894,7 +894,7 @@
 <div class="setup-screen" id="setupScreen">
   <div class="setup-card">
     <h2>🦆 Hola, bienvenida</h2>
-    <p>Para guardar tus datos en la nube, conecta tu cuenta de GitHub. Solo se hace una vez por dispositivo.</p>
+    <p>Para guardar tus datos en la nube, conecta tu cuenta de GitHub. Solo necesitas el token.</p>
 
     <ol>
       <li>Ve a <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens/new</a></li>
@@ -904,20 +904,7 @@
       <li>Pulsa <b>Generate token</b> y cópialo</li>
     </ol>
 
-    <input type="password" id="setupToken" placeholder="Token de GitHub (obligatorio)..." />
-
-    <details style="margin-bottom:12px">
-      <summary style="font-size:0.85rem;color:var(--muted);cursor:pointer;margin-bottom:8px">
-        ¿Ya tienes la app en otro dispositivo? Pulsa aquí
-      </summary>
-      <p style="font-size:0.82rem;color:var(--muted);margin:8px 0 8px">
-        Pega el ID de tu Gist para conectarte al mismo que usas en el otro dispositivo.
-        Lo encuentras en <a href="https://gist.github.com" target="_blank">gist.github.com</a> → busca
-        <b>Mi Olganización — datos</b> → copia el código largo de la URL.
-      </p>
-      <input type="text" id="setupGistId" placeholder="ID del Gist (opcional, solo si ya tienes datos)..." />
-    </details>
-
+    <input type="password" id="setupToken" placeholder="Token de GitHub..." />
     <div class="setup-error" id="setupError">Token inválido o sin permisos de Gist. Inténtalo de nuevo.</div>
     <button class="btn-primary" onclick="setupGist()">Conectar y empezar →</button>
   </div>
@@ -1391,16 +1378,21 @@ async function setupGist() {
   }
 }
 
+// Tu Gist ID — guardado aquí como seguridad por si el localStorage se borra
+const MY_GIST_ID = '6f53475100b9d14bbf32d4a8e9a22748';
+
 async function init() {
   ghToken = localStorage.getItem('gh_token') || '';
-  gistId = localStorage.getItem('gist_id') || '';
+  // Always restore gist ID from constant if missing
+  gistId = localStorage.getItem('gist_id') || MY_GIST_ID;
+  if (gistId) localStorage.setItem('gist_id', gistId);
 
   if (ghToken && gistId) {
     document.getElementById('setupScreen').style.display = 'none';
     await loadFromGist();
     renderWeek();
   }
-  // else: setup screen stays visible
+  // else: setup screen stays visible (only needs token now)
 }
 
 // ─── DATE UTILS ───────────────────────────────────────────
@@ -1845,15 +1837,17 @@ function renderSuggestions() {
 }
 
 function setupFilters() {
-  ['estacion','proteina','estado'].forEach(group => {
-    document.getElementById('filter-' + group).addEventListener('click', e => {
-      const pill = e.target.closest('.fpill');
-      if (!pill) return;
-      document.querySelectorAll(`#filter-${group} .fpill`).forEach(p => p.classList.remove('active'));
-      pill.classList.add('active');
-      activeFilters[group] = pill.dataset.val;
-      renderSuggestions();
-    });
+  document.addEventListener('click', e => {
+    const pill = e.target.closest('.fpill');
+    if (!pill) return;
+    const group = pill.closest('[id^="filter-"]');
+    if (!group) return;
+    const groupName = group.id.replace('filter-', '');
+    if (!['estacion','proteina','estado'].includes(groupName)) return;
+    group.querySelectorAll('.fpill').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    activeFilters[groupName] = pill.dataset.val;
+    renderSuggestions();
   });
 }
 
@@ -1886,20 +1880,19 @@ function clearTagSelectors() {
 }
 
 function setupTagSelectors() {
-  document.querySelectorAll('.tag-selector').forEach(sel => {
+  // Use event delegation on document so it works even when modals are dynamically shown
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.tag-opt');
+    if (!btn) return;
+    const sel = btn.closest('.tag-selector');
+    if (!sel) return;
     const isMulti = sel.id === 'edit-estacion';
-    sel.addEventListener('click', e => {
-      const btn = e.target.closest('.tag-opt');
-      if (!btn) return;
-      if (isMulti) {
-        // Multi-select: toggle individual buttons
-        btn.classList.toggle('selected');
-      } else {
-        // Single-select: deselect all then toggle clicked
-        sel.querySelectorAll('.tag-opt').forEach(b => b.classList.remove('selected'));
-        btn.classList.toggle('selected', !btn.classList.contains('selected'));
-      }
-    });
+    if (isMulti) {
+      btn.classList.toggle('selected');
+    } else {
+      sel.querySelectorAll('.tag-opt').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    }
   });
 }
 
