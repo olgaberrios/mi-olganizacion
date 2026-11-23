@@ -1375,16 +1375,68 @@ function describeConflict(c) {
   return p.join(' › ');
 }
 
+function showAlert(titulo, secciones) {
+  let ov = document.getElementById('alertaConflicto');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'alertaConflicto';
+    ov.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;z-index:10001;background:rgba(44,32,22,.6);display:flex;align-items:center;justify-content:center;padding:18px;font-family:'DM Sans',sans-serif";
+    const card = document.createElement('div');
+    card.style.cssText = 'background:#fff8e1;border:4px solid #e65100;border-radius:16px;max-width:520px;width:100%;max-height:85vh;overflow:auto;padding:20px 20px 18px;box-shadow:0 12px 40px rgba(0,0,0,.45)';
+    const cont = document.createElement('div');
+    cont.id = 'alertaContenido';
+    const ok = document.createElement('button');
+    ok.textContent = 'Entendido';
+    ok.style.cssText = 'width:100%;margin-top:6px;padding:15px;font:700 1.1rem "DM Sans",sans-serif;background:#e65100;color:#fff;border:none;border-radius:12px;cursor:pointer';
+    ok.onclick = () => ov.remove();
+    card.appendChild(cont); card.appendChild(ok); ov.appendChild(card);
+    document.body.appendChild(ov);
+  }
+  const cont = document.getElementById('alertaContenido');
+  const bloque = document.createElement('div');
+  bloque.style.cssText = 'margin-bottom:16px';
+  const h = document.createElement('div');
+  h.textContent = titulo;
+  h.style.cssText = 'font-size:1.45rem;font-weight:800;color:#bf360c;margin-bottom:10px';
+  bloque.appendChild(h);
+  secciones.forEach(s => {
+    const p = document.createElement('div');
+    p.textContent = s.texto;
+    p.style.cssText = 'font-size:1.08rem;line-height:1.5;color:#2c2016;margin:8px 0 6px';
+    bloque.appendChild(p);
+    const ul = document.createElement('ul');
+    ul.style.cssText = 'margin:0 0 6px 20px;padding:0';
+    s.items.slice(0, 12).forEach(t => {
+      const li = document.createElement('li');
+      li.textContent = t;
+      li.style.cssText = 'font-size:1.15rem;font-weight:700;color:#2c2016;margin:4px 0';
+      ul.appendChild(li);
+    });
+    if (s.items.length > 12) { const li = document.createElement('li'); li.textContent = '…y ' + (s.items.length - 12) + ' más'; li.style.cssText = 'font-size:1.05rem;color:#2c2016'; ul.appendChild(li); }
+    bloque.appendChild(ul);
+    if (s.nota) { const n = document.createElement('div'); n.textContent = s.nota; n.style.cssText = 'font-size:0.92rem;color:#6b5a4a;margin-top:4px'; bloque.appendChild(n); }
+  });
+  cont.appendChild(bloque);
+  try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (_) { /* sin vibración */ }
+}
+
 function reportConflicts(conf) {
   const uniq = a => [...new Set(a)];
   const mismos = uniq(conf.filter(c => !c.kind).map(describeConflict));
   const aqui = uniq(conf.filter(c => c.kind === 'borrado-aqui').map(describeConflict));
   const alli = uniq(conf.filter(c => c.kind === 'borrado-alli').map(describeConflict));
-  let msg = '';
-  if (mismos.length) msg += '⚠️ Se cambió lo mismo en dos dispositivos. Me quedo con tu cambio en: ' + mismos.slice(0, 4).join('; ') + (mismos.length > 4 ? '…' : '') + '. ';
-  if (aqui.length) msg += 'Lo habías borrado aquí, pero otro dispositivo lo había editado, así que se conserva: ' + aqui.slice(0, 3).join('; ') + '. ';
-  if (alli.length) msg += 'Otro dispositivo lo había borrado, pero tú lo habías editado, así que se conserva: ' + alli.slice(0, 3).join('; ') + '. ';
-  showToast(msg.trim(), 14000);
+  const secciones = [];
+  if (mismos.length) secciones.push({
+    texto: 'Se editó lo mismo en dos dispositivos a la vez. Me he quedado con TU cambio en:',
+    items: mismos,
+    nota: 'La otra versión no se pierde del todo: queda en el historial del Gist, en GitHub.' });
+  if (aqui.length) secciones.push({
+    texto: 'Lo habías borrado aquí, pero otro dispositivo lo había editado, así que NO se ha borrado:',
+    items: aqui });
+  if (alli.length) secciones.push({
+    texto: 'Otro dispositivo lo había borrado, pero tú lo habías editado, así que se ha conservado:',
+    items: alli });
+  if (secciones.length) showAlert('⚠️ Revisa esto', secciones);
   console.warn('Conflictos de sincronización', conf);
 }
 
