@@ -923,7 +923,7 @@
     <h1>🦆 Mi Olganización</h1>
   </div>
   <div class="header-middle">
-    <span class="sync-status" id="syncStatus" onclick="forcSync()" title="Toca para sincronizar ahora">
+    <span class="sync-status" id="syncStatus" onclick="forcSync()" title="Toca para sincronizar ahora (se sincroniza solo cada 30 s)">
       <span class="sync-dot" id="syncDot"></span>
       <span id="syncLabel">Sincronizando…</span>
     </span>
@@ -940,6 +940,7 @@
     <button class="tab" onclick="showView('compra', this)">🛒 Compra</button>
   </div>
 </header>
+<div id="gistWarn" onclick="usarGistHabitual()" style="display:none;background:#fff3cd;color:#7a5b00;text-align:center;font-size:0.8rem;font-weight:600;padding:9px 14px;cursor:pointer;font-family:'DM Sans',sans-serif">⚠️ Este dispositivo usa un Gist distinto del habitual: puede que veas datos distintos a los de tus otros dispositivos. Toca aquí para cambiar al habitual.</div>
 
 <main>
   <!-- COMIDAS VIEW -->
@@ -1194,17 +1195,62 @@ let currentWeekOffset = 0;
 let selectedSugType = 'comidas';
 let syncTimer = null;
 
-// ─── GIST SYNC ────────────────────────────────────────────
+// ─── SINCRONIZACIÓN CON EL GIST ───────────────────────────
+// Idea: la app recuerda qué había en la nube la última vez que la vio ("base").
+// Al guardar vuelve a leer la nube y FUSIONA: aplica solo lo que has cambiado
+// tú sobre lo que haya ahora. Así dos dispositivos no se pisan y no hace falta
+// recargar. Cada 30 s (y al volver a la app) trae los cambios de los demás.
+const POLL_MS = 30000;
+const SAVE_DELAY_MS = 700;
+const TYPING_IDLE_MS = 10000;
+
+let gistFullyLoaded = false;
+let baseRaw = '';          // texto exacto del archivo en la nube la última vez que lo vimos o escribimos
+let baseState = null;      // {data, suggestions} equivalente a baseRaw
+let pendingSave = false;   // hay cambios aquí que aún no están en la nube
+let saving = false;
+let resaveAfter = false;
+let polling = false;
+let needsRerender = false;
+let lastEditAt = 0;
+let syncLoopStarted = false;
+let loadRetryTimer = null;
+let lastWriteAt = 0;       // última vez que se escribió en la nube
+let MIN_WRITE_GAP_MS = 2500; // como mucho una escritura cada 2,5 s (GitHub limita las escrituras)
+let pendingSince = 0;      // desde cuándo hay cambios sin guardar (para no esperar más de 10 s)
+let blockedUntil = 0;      // si GitHub dice "para", no se insiste hasta esta hora
+let backoffMs = 0;
+
 function setSyncStatus(state, label) {
   const dot = document.getElementById('syncDot');
   const lbl = document.getElementById('syncLabel');
-  dot.className = 'sync-dot ' + state;
-  lbl.textContent = label;
+  if (dot) dot.className = 'sync-dot ' + state;
+  if (lbl) lbl.textContent = label;
+}
+
+function hhmm() {
+  return new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+}
+
+function showToast(msg, ms) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.style.cssText = "position:fixed;left:12px;right:12px;bottom:18px;max-width:560px;margin:0 auto;z-index:10000;background:#2c2016;color:#fff;padding:12px 14px;border-radius:12px;font:500 0.85rem/1.4 'DM Sans',sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.3);display:none;cursor:pointer";
+    t.onclick = () => { t.style.display = 'none'; };
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(t._h);
+  t._h = setTimeout(() => { t.style.display = 'none'; }, ms || 6000);
 }
 
 async function gistRequest(method, path, body) {
   const res = await fetch('https://api.github.com' + path, {
     method,
+    cache: 'no-store',
     headers: {
       'Authorization': 'token ' + ghToken,
       'Accept': 'application/vnd.github.v3+json',
@@ -1212,109 +1258,396 @@ async function gistRequest(method, path, body) {
     },
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
+  if (!res.ok) {
+    const e = new Error('HTTP ' + res.status);
+    e.status = res.status;
+    try { const j = await res.json(); e.apiMessage = j && j.message; } catch (_) { /* sin cuerpo */ }
+    try { e.rlRemaining = res.headers.get('x-ratelimit-remaining'); e.rlReset = res.headers.get('x-ratelimit-reset'); } catch (_) { /* sin cabeceras */ }
+    throw e;
+  }
   return res.json();
 }
 
-// Flag: only true after a successful load from Gist
-let gistFullyLoaded = false;
+// ── Utilidades de comparación (un valor "vacío" equivale a que no exista) ──
+const jClone = v => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)));
+const jIsObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
+function jIsEmpty(v) {
+  if (v === undefined || v === null || v === '' || v === false) return true;
+  if (Array.isArray(v)) return v.length === 0;
+  if (jIsObj(v)) return Object.values(v).every(jIsEmpty);
+  return false;
+}
+function jCanon(v) {
+  if (Array.isArray(v)) return v.map(jCanon);
+  if (jIsObj(v)) {
+    const o = {};
+    Object.keys(v).sort().forEach(k => { if (!jIsEmpty(v[k])) o[k] = jCanon(v[k]); });
+    return o;
+  }
+  return v;
+}
+const jEq = (a, b) => (jIsEmpty(a) && jIsEmpty(b)) || JSON.stringify(jCanon(a)) === JSON.stringify(jCanon(b));
+
+function jIdList(v) {
+  if (v === undefined || v === null || (Array.isArray(v) && v.length === 0)) return [];
+  if (Array.isArray(v) && v.every(x => jIsObj(x) && x.id !== undefined)) return v;
+  return null;
+}
+function jAsObj(v) {
+  if (jIsObj(v)) return v;
+  if (v === undefined || v === null) return {};
+  return null;
+}
+
+// Fusión de tres vías: base (lo último que vimos), local (lo de aquí), remoto (lo de la nube).
+// Si solo cambió uno de los lados, gana ese. Si cambiaron los dos y es distinto, gana lo local
+// y se apunta en `conf` para avisarte.
+function merge3(b, l, r, path, conf) {
+  if (jEq(l, r)) return l === undefined ? r : l;
+  if (jEq(b, l)) return r;
+  if (jEq(b, r)) return l;
+
+  const IB = jIdList(b), IL = jIdList(l), IR = jIdList(r);
+  if (IB && IL && IR) {
+    const mb = new Map(IB.map(x => [x.id, x]));
+    const ml = new Map(IL.map(x => [x.id, x]));
+    const mr = new Map(IR.map(x => [x.id, x]));
+    const out = [];
+    const handle = id => {
+      const bi = mb.get(id), li = ml.get(id), ri = mr.get(id);
+      let v;
+      if (li === undefined && ri === undefined) return;
+      if (bi === undefined) {
+        v = (li !== undefined && ri !== undefined) ? merge3(undefined, li, ri, path.concat(String(id)), conf) : (li !== undefined ? li : ri);
+      } else if (li === undefined) {            // aquí se borró
+        if (!jEq(bi, ri)) { conf.push({ path: path.concat(String(id)), kind: 'borrado-aqui' }); v = ri; }
+        else v = undefined;
+      } else if (ri === undefined) {            // en la nube se borró
+        if (!jEq(bi, li)) { conf.push({ path: path.concat(String(id)), kind: 'borrado-alli' }); v = li; }
+        else v = undefined;
+      } else {
+        v = merge3(bi, li, ri, path.concat(String(id)), conf);
+      }
+      if (v !== undefined) out.push(v);
+    };
+    IR.forEach(x => handle(x.id));                       // primero el orden de la nube
+    IL.forEach(x => { if (!mr.has(x.id)) handle(x.id); }); // luego lo que solo existe aquí
+    return out;
+  }
+
+  const B = jAsObj(b), L = jAsObj(l), R = jAsObj(r);
+  if (B && L && R) {
+    const out = {};
+    new Set([...Object.keys(B), ...Object.keys(L), ...Object.keys(R)]).forEach(k => {
+      let v;
+      if (k === 'updatedAt' || k === 'savedAt') {
+        v = (L[k] !== undefined && R[k] !== undefined) ? (L[k] > R[k] ? L[k] : R[k]) : (L[k] !== undefined ? L[k] : R[k]);
+      } else {
+        v = merge3(B[k], L[k], R[k], path.concat(k), conf);
+      }
+      if (v !== undefined) out[k] = v;
+    });
+    return out;
+  }
+
+  conf.push({ path: path.slice() });
+  return l;
+}
+
+function describeConflict(c) {
+  const p = c.path;
+  try {
+    if (p[0] === 'data') {
+      const f = p[1].split('-').map(Number);
+      const campo = { comida: 'comida', cena: 'cena', notas: 'notas', comidaLink: 'enlace de la comida',
+        cenaLink: 'enlace de la cena', exercises: 'ejercicio', done: '«hecho»' }[p[2]] || p[2] || 'día';
+      return f[2] + ' ' + MONTHS_ES[f[1] - 1] + ' · ' + campo;
+    }
+    if (p[0] === 'suggestions' && p[1] === 'recetas') {
+      const r = (suggestions.recetas || []).find(x => String(x.id) === p[2]);
+      return 'receta «' + ((r && r.name) || p[2]).slice(0, 40) + '»';
+    }
+    if (p[0] === 'suggestions' && p[1] === 'compra') {
+      const x = ((suggestions.compra && suggestions.compra.productos) || []).find(q => String(q.id) === p[3]);
+      return 'producto «' + ((x && x.name) || p[3] || 'compra') + '»';
+    }
+  } catch (e) { /* cae al texto genérico */ }
+  return p.join(' › ');
+}
+
+function reportConflicts(conf) {
+  const uniq = a => [...new Set(a)];
+  const mismos = uniq(conf.filter(c => !c.kind).map(describeConflict));
+  const aqui = uniq(conf.filter(c => c.kind === 'borrado-aqui').map(describeConflict));
+  const alli = uniq(conf.filter(c => c.kind === 'borrado-alli').map(describeConflict));
+  let msg = '';
+  if (mismos.length) msg += '⚠️ Se cambió lo mismo en dos dispositivos. Me quedo con tu cambio en: ' + mismos.slice(0, 4).join('; ') + (mismos.length > 4 ? '…' : '') + '. ';
+  if (aqui.length) msg += 'Lo habías borrado aquí, pero otro dispositivo lo había editado, así que se conserva: ' + aqui.slice(0, 3).join('; ') + '. ';
+  if (alli.length) msg += 'Otro dispositivo lo había borrado, pero tú lo habías editado, así que se conserva: ' + alli.slice(0, 3).join('; ') + '. ';
+  showToast(msg.trim(), 14000);
+  console.warn('Conflictos de sincronización', conf);
+}
+
+const jLleno = d => !!d && !!(d.comida || d.cena || d.notas || Object.values(d.exercises || {}).some(e => e && e.checked));
+function lossReport(remoteState, merged) {
+  const cnt = s => ({
+    dias: Object.values(s.data || {}).filter(jLleno).length,
+    recetas: ((s.suggestions || {}).recetas || []).length,
+    productos: (((s.suggestions || {}).compra || {}).productos || []).length,
+  });
+  const a = cnt(remoteState), b = cnt(merged);
+  const lost = { dias: a.dias - b.dias, recetas: a.recetas - b.recetas, productos: a.productos - b.productos };
+  // Salta si se pierde mucho en cifras absolutas, o si se pierde la mitad o más de lo que hay
+  const grande = (perdido, total, maximo) => perdido > maximo || (total >= 3 && perdido >= 2 && perdido * 2 >= total);
+  return (grande(lost.dias, a.dias, 5) || grande(lost.recetas, a.recetas, 5) || grande(lost.productos, a.productos, 20)) ? lost : null;
+}
+
+async function fetchRemote() {
+  const gist = await gistRequest('GET', '/gists/' + gistId + '?nocache=' + Date.now());
+  const f = gist.files && gist.files[GIST_FILENAME];
+  let raw = null;
+  if (f) {
+    raw = f.content;
+    if (f.truncated && f.raw_url) {
+      const r = await fetch(f.raw_url, { cache: 'no-store' });
+      if (!r.ok) { const e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
+      raw = await r.text();
+    }
+  }
+  const parsed = raw ? JSON.parse(raw) : {};
+  return { raw: raw || '', state: { data: parsed.data || {}, suggestions: parsed.suggestions || {} } };
+}
+
+function isTyping() {
+  const a = document.activeElement;
+  if (!a) return false;
+  const editable = a.tagName === 'TEXTAREA' ||
+    (a.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'submit', 'file'].includes(a.type));
+  return editable && (Date.now() - lastEditAt < TYPING_IDLE_MS);
+}
+
+function rerenderAll() {
+  const abiertos = [...document.querySelectorAll('.day-card.open')].map(c => c.id);
+  renderWeek();
+  abiertos.forEach(id => {
+    const c = document.getElementById(id), b = document.getElementById(id.replace('card-', 'body-'));
+    if (c && b) { c.classList.add('open'); b.classList.add('open'); }
+  });
+  ['view-suggestions', 'view-compra'].forEach(v => {
+    const el = document.getElementById(v);
+    if (el && getComputedStyle(el).display !== 'none') (v === 'view-suggestions' ? renderSuggestions : renderCompra)();
+  });
+}
+
+function maybeRerender() {
+  if (!needsRerender || isTyping()) return;
+  needsRerender = false;
+  rerenderAll();
+}
+
+function noteBlock(e) {
+  let wait;
+  if (e.rlRemaining === '0' && e.rlReset) wait = Math.max(5000, Number(e.rlReset) * 1000 - Date.now() + 2000);
+  else { backoffMs = Math.min(backoffMs ? backoffMs * 2 : 60000, 600000); wait = backoffMs; }
+  blockedUntil = Date.now() + wait;
+  return wait;
+}
+
+function handleSyncError(e) {
+  console.error('Sync:', e, e && e.apiMessage);
+  if (!navigator.onLine || (e && e.name === 'TypeError')) setSyncStatus('error', 'Sin conexión — se guardará al volver');
+  else if (e.status === 403 || e.status === 429) {
+    const wait = noteBlock(e);
+    setSyncStatus('error', '⚠️ GitHub frena las peticiones — reintento en ' + Math.max(1, Math.round(wait / 60000)) + ' min');
+    showToast('GitHub dice: «' + String(e.apiMessage || ('error ' + e.status)).slice(0, 120) + '». Tus cambios siguen aquí y se guardarán solos.', 12000);
+  }
+  else if (e.status === 409) setSyncStatus('error', 'Otro guardado a la vez — reintento en unos segundos');
+  else if (e.status === 401) setSyncStatus('error', '⚠️ El token no vale — hay que volver a conectar');
+  else if (e.status === 404) setSyncStatus('error', '⚠️ No encuentro el Gist (¿ID incorrecto?)');
+  else setSyncStatus('error', '⚠️ Error de sincronización (' + (e.status || e.message) + ')');
+}
 
 async function loadFromGist() {
   setSyncStatus('syncing', 'Cargando…');
   try {
-    const gist = await gistRequest('GET', '/gists/' + gistId);
-    const raw = gist.files[GIST_FILENAME]?.content;
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      // Only replace in-memory data if parsed data is non-empty
-      if (parsed.data && Object.keys(parsed.data).length > 0) {
-        data = parsed.data;
-      }
-      if (parsed.suggestions) {
-        // Merge carefully: keep existing keys, overlay parsed
-        suggestions = parsed.suggestions;
-      }
+    const remote = await fetchRemote();
+    if (remote.raw) {
+      data = remote.state.data || {};
+      suggestions = remote.state.suggestions && Object.keys(remote.state.suggestions).length
+        ? remote.state.suggestions : JSON.parse(JSON.stringify(DEFAULT_SUGGESTIONS));
     }
+    baseRaw = remote.raw;
+    baseState = jClone({ data: data, suggestions: suggestions });
+    pendingSave = false;
     gistFullyLoaded = true;
-    setSyncStatus('ok', 'Guardado en la nube ✓');
-  } catch(e) {
-    setSyncStatus('error', 'Error al cargar');
-    console.error(e);
+    setSyncStatus('ok', 'Al día ✓ ' + hhmm());
+  } catch (e) {
+    handleSyncError(e);
+    clearTimeout(loadRetryTimer);
+    loadRetryTimer = setTimeout(async () => {
+      if (gistFullyLoaded) return;
+      await loadFromGist();
+      if (gistFullyLoaded) rerenderAll();
+    }, 10000);
   }
 }
 
 async function saveToGist() {
   if (!ghToken || !gistId) return;
-
-  // CRITICAL: never save if we haven't successfully loaded first
-  if (!gistFullyLoaded) {
-    console.warn('Save blocked: Gist not fully loaded yet');
-    setSyncStatus('error', '⚠️ No guardado — carga incompleta');
-    return;
-  }
-
+  if (!gistFullyLoaded) { setSyncStatus('error', '⚠️ No guardado — aún no se han cargado tus datos'); return; }
+  if (saving) { resaveAfter = true; return; }
+  if (Date.now() < blockedUntil) { clearTimeout(syncTimer); syncTimer = setTimeout(saveToGist, blockedUntil - Date.now() + 500); return; }
+  saving = true;
+  clearTimeout(syncTimer);
   setSyncStatus('syncing', 'Guardando…');
   try {
-    // Safety check: fetch remote and compare counts before saving
-    const remoteRes = await gistRequest('GET', '/gists/' + gistId);
-    const remoteRaw = remoteRes.files[GIST_FILENAME]?.content;
+    const remote = await fetchRemote();
+    // Desde aquí hasta el PATCH no hay esperas: el estado local no puede cambiar a medias.
+    const hadRemoteChanges = remote.raw !== baseRaw;
+    const snapshot = jClone({ data: data, suggestions: suggestions });
+    const conf = [];
+    const m = hadRemoteChanges ? merge3(baseState, snapshot, remote.state, [], conf) : snapshot;
+    const merged = { data: m.data || {}, suggestions: m.suggestions || {} };
 
-    if (remoteRaw) {
-      const remote = JSON.parse(remoteRaw);
-      const remoteRecetas = (remote.suggestions?.recetas || []).length;
-      const remoteProductos = (remote.suggestions?.compra?.productos || []).length;
-      const remoteDays = Object.keys(remote.data || {}).length;
-      const localRecetas = (suggestions.recetas || []).length;
-      const localProductos = (suggestions.compra?.productos || []).length;
-      const localDays = Object.keys(data || {}).length;
-
-      // Block if local has significantly less data than remote
-      if (remoteRecetas > localRecetas + 3 ||
-          remoteProductos > localProductos + 10 ||
-          (remoteDays > 10 && localDays < remoteDays - 10)) {
-        setSyncStatus('error', '⚠️ Guardado bloqueado — recarga la app');
-        console.warn('SAVE BLOCKED to prevent data loss', {
-          remoteRecetas, localRecetas,
-          remoteProductos, localProductos,
-          remoteDays, localDays
-        });
-        return;
-      }
-
-      // Save a backup of current remote before overwriting
-      await gistRequest('PATCH', '/gists/' + gistId, {
-        files: {
-          'mi-semana-backup.json': { content: remoteRaw }
-        }
-      });
+    const lost = lossReport(remote.state, merged);
+    if (lost && !confirm('⚠️ Este guardado BORRARÍA datos que ahora están en la nube:\n' +
+        lost.recetas + ' recetas, ' + lost.productos + ' productos, ' + lost.dias + ' días con contenido.\n\n' +
+        '¿Seguro que quieres borrarlos?\n(Cancelar = descartar los cambios de este dispositivo y traer lo de la nube)')) {
+      data = jClone(remote.state.data) || {};
+      suggestions = jClone(remote.state.suggestions) || {};
+      baseRaw = remote.raw; baseState = jClone(remote.state); pendingSave = false;
+      rerenderAll();
+      setSyncStatus('ok', 'Al día ✓ ' + hhmm());
+      showToast('Cambios descartados para no borrar datos de la nube.');
+      return;
     }
 
-    const content = JSON.stringify({ data, suggestions, savedAt: new Date().toISOString() }, null, 2);
-    await gistRequest('PATCH', '/gists/' + gistId, {
-      files: { [GIST_FILENAME]: { content } }
-    });
-    setSyncStatus('ok', 'Guardado en la nube ✓');
-  } catch(e) {
-    setSyncStatus('error', 'Error al guardar');
-    console.error(e);
+    if (jEq(merged, remote.state)) {
+      baseRaw = remote.raw; baseState = jClone(remote.state);
+    } else {
+      const content = JSON.stringify({ data: merged.data, suggestions: merged.suggestions, savedAt: new Date().toISOString() }, null, 2);
+      lastWriteAt = Date.now();
+      const res = await gistRequest('PATCH', '/gists/' + gistId, { files: { [GIST_FILENAME]: { content } } });
+      // Solo damos por bueno el guardado si GitHub devuelve lo que enviamos
+      const echoed = res.files && res.files[GIST_FILENAME];
+      if (echoed && !echoed.truncated && typeof echoed.content === 'string') {
+        const back = JSON.parse(echoed.content);
+        if (!jEq({ data: back.data || {}, suggestions: back.suggestions || {} }, merged)) throw new Error('GitHub no devolvió lo que se guardó');
+      }
+      baseRaw = content; baseState = jClone(merged);
+    }
+
+    // Adoptar lo fusionado sin pisar lo que se haya escrito mientras se guardaba
+    const live = merge3(snapshot, { data: data, suggestions: suggestions }, merged, [], []);
+    data = live.data || {};
+    suggestions = live.suggestions || {};
+    pendingSave = !jEq({ data: data, suggestions: suggestions }, baseState);
+    pendingSince = pendingSave ? Date.now() : 0;
+    if (hadRemoteChanges) {
+      needsRerender = true;
+      if (conf.length) reportConflicts(conf);
+      else showToast('🔄 Se han traído cambios hechos en otro dispositivo');
+    }
+    backoffMs = 0; blockedUntil = 0;
+    setSyncStatus('ok', 'Guardado ✓ ' + hhmm());
+  } catch (e) {
+    handleSyncError(e);
+    pendingSave = true;
+    clearTimeout(syncTimer);
+    const espera = e.status === 409 ? 2000 + Math.random() * 3000 : Math.max(15000, blockedUntil - Date.now() + 500);
+    syncTimer = setTimeout(saveToGist, espera);
+    return;
+  } finally {
+    saving = false;
+  }
+  maybeRerender();
+  if (pendingSave || resaveAfter) {
+    resaveAfter = false;
+    scheduleSave(300);
+  }
+}
+
+function scheduleSave(minDelay) {
+  const hueco = MIN_WRITE_GAP_MS - (Date.now() - lastWriteAt);
+  // Esperamos a que pares de tocar, pero nunca más de 10 s desde el primer cambio sin guardar
+  const tope = pendingSince ? Math.max(0, pendingSince + 10000 - Date.now()) : minDelay;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(saveToGist, Math.max(hueco, Math.min(minDelay, tope)));
+}
+
+async function pollRemote() {
+  maybeRerender();
+  if (!gistFullyLoaded || polling || saving || pendingSave || !ghToken || !gistId) return;
+  if (Date.now() < blockedUntil) return;
+  polling = true;
+  try {
+    const remote = await fetchRemote();
+    if (saving || pendingSave) return;            // mientras tanto has editado: lo fusionará el guardado
+    if (remote.raw === baseRaw) { setSyncStatus('ok', 'Al día ✓ ' + hhmm()); return; }
+    if (isTyping()) return;                       // se reintenta en el siguiente ciclo
+    const conf = [];
+    const snapshot = jClone({ data: data, suggestions: suggestions });
+    const live = merge3(baseState, snapshot, remote.state, [], conf);
+    data = live.data || {};
+    suggestions = live.suggestions || {};
+    baseRaw = remote.raw; baseState = jClone(remote.state);
+    pendingSave = !jEq({ data: data, suggestions: suggestions }, baseState);
+    rerenderAll();
+    setSyncStatus('ok', 'Actualizado ✓ ' + hhmm());
+    if (conf.length) reportConflicts(conf); else showToast('🔄 Se han traído cambios hechos en otro dispositivo');
+    if (pendingSave) scheduleSave(300);
+  } catch (e) {
+    handleSyncError(e);
+  } finally {
+    polling = false;
   }
 }
 
 function save() {
   if (!gistFullyLoaded) {
-    setSyncStatus('error', '⚠️ No cargado — recarga la app');
-    console.warn('Save skipped: not loaded yet');
+    setSyncStatus('error', '⚠️ Aún no se han cargado tus datos');
+    showToast('⚠️ La app todavía no ha cargado tus datos: este cambio NO se guardará. Espera a que ponga «Al día ✓».');
     return;
   }
+  if (!pendingSave) pendingSince = Date.now();
+  pendingSave = true;
+  lastEditAt = Date.now();
   clearTimeout(syncTimer);
-  setSyncStatus('syncing', 'Guardando…');
-  syncTimer = setTimeout(saveToGist, 1500);
+  if (Date.now() < blockedUntil) setSyncStatus('error', '⚠️ Guardado en pausa (GitHub frena) — tus cambios siguen aquí');
+  else setSyncStatus('syncing', 'Cambios sin guardar…');
+  scheduleSave(SAVE_DELAY_MS);
+}
+
+function flushNow() {
+  if (pendingSave && !saving && gistFullyLoaded) { clearTimeout(syncTimer); saveToGist(); }
 }
 
 async function forcSync() {
-  if (!gistFullyLoaded) return;
-  clearTimeout(syncTimer);
-  await saveToGist();
+  if (!gistFullyLoaded) { await loadFromGist(); if (gistFullyLoaded) rerenderAll(); return; }
+  if (pendingSave) { clearTimeout(syncTimer); await saveToGist(); }
+  else { await pollRemote(); }
+}
+
+function startSyncLoop() {
+  if (syncLoopStarted) return;
+  syncLoopStarted = true;
+  setInterval(() => { if (!document.hidden) pollRemote(); }, POLL_MS);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) flushNow(); else pollRemote(); });
+  window.addEventListener('pagehide', flushNow);
+  window.addEventListener('focus', () => pollRemote());
+  window.addEventListener('online', () => { flushNow(); pollRemote(); });
+  window.addEventListener('beforeunload', e => { if (pendingSave || saving) { e.preventDefault(); e.returnValue = ''; } });
+}
+
+function checkGistWarning() {
+  const el = document.getElementById('gistWarn');
+  if (el) el.style.display = (gistId && gistId !== MY_GIST_ID) ? 'block' : 'none';
+}
+
+function usarGistHabitual() {
+  if (!confirm('Se cargarán los datos del Gist habitual.\nLo que no esté guardado en este dispositivo se perderá.\n\n¿Continuar?')) return;
+  localStorage.setItem('gist_id', MY_GIST_ID);
+  location.reload();
 }
 
 // ─── SETUP ────────────────────────────────────────────────
@@ -1322,6 +1655,12 @@ async function setupGist() {
   const token = document.getElementById('setupToken').value.trim();
   const existingGistId = document.getElementById('setupGistId')?.value.trim() || '';
   if (!token) return;
+
+  if (!existingGistId) {
+    if (!confirm('No has puesto ningún ID de Gist.\n\nSi ya usas la app en otro dispositivo, NO sigas: se crearía un Gist nuevo y vacío y verías datos distintos en cada sitio.\n\n¿Crear un Gist nuevo de todas formas?')) return;
+  } else if (existingGistId !== MY_GIST_ID) {
+    if (!confirm('Este ID no es el habitual (empieza por ' + MY_GIST_ID.slice(0, 6) + '). Si lo cambias, verás otros datos.\n\n¿Continuar?')) return;
+  }
 
   setSyncStatus('syncing', 'Conectando…');
   document.getElementById('setupError').style.display = 'none';
@@ -1345,6 +1684,8 @@ async function setupGist() {
       document.getElementById('setupScreen').style.display = 'none';
       await loadFromGist();
       renderWeek();
+      checkGistWarning();
+      startSyncLoop();
 
     } else {
       // Create new Gist
@@ -1375,8 +1716,10 @@ async function setupGist() {
       localStorage.setItem('gist_id', gistId);
 
       document.getElementById('setupScreen').style.display = 'none';
-      setSyncStatus('ok', 'Conectado ✓');
+      await loadFromGist();
       renderWeek();
+      checkGistWarning();
+      startSyncLoop();
     }
 
   } catch(e) {
@@ -1413,6 +1756,8 @@ async function init() {
     document.getElementById('setupScreen').style.display = 'none';
     await loadFromGist();
     renderWeek();
+    checkGistWarning();
+    startSyncLoop();
   } else {
     // Setup screen stays visible. Pre-fill (but don't force) your known
     // Gist ID so a new device can just tap "Conectar" to restore your data,
