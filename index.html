@@ -603,6 +603,13 @@
   .link-row input:focus { border-color: var(--accent); background: white; }
   .link-row a { color: var(--accent); font-size: 1rem; text-decoration: none; flex-shrink: 0; }
 
+  .defrost-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 6px 10px; border: 1.5px solid var(--border); border-radius: 9px; background: var(--bg); }
+  .defrost-row.on { background: #e3f2fd; border-color: #5b9bd5; }
+  .defrost-check { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 600; color: #1565c0; white-space: nowrap; cursor: pointer; }
+  .defrost-check input { width: 18px; height: 18px; accent-color: #1565c0; }
+  .defrost-que { flex: 1; min-width: 0; border: none; border-bottom: 1.5px solid var(--border); background: transparent; font-family: 'DM Sans', sans-serif; font-size: 0.82rem; padding: 4px 2px; color: var(--text); outline: none; }
+  .defrost-que:focus { border-bottom-color: #5b9bd5; }
+
   /* Export bar */
   .export-bar {
     display: grid;
@@ -1360,7 +1367,9 @@ function describeConflict(c) {
     if (p[0] === 'data') {
       const f = p[1].split('-').map(Number);
       const campo = { comida: 'comida', cena: 'cena', notas: 'notas', comidaLink: 'enlace de la comida',
-        cenaLink: 'enlace de la cena', exercises: 'ejercicio', done: '«hecho»' }[p[2]] || p[2] || 'día';
+        cenaLink: 'enlace de la cena', exercises: 'ejercicio', done: '«hecho»',
+        comidaDescongelar: '«descongelar» de la comida', comidaDescongelarQue: 'qué descongelar en la comida',
+        cenaDescongelar: '«descongelar» de la cena', cenaDescongelarQue: 'qué descongelar en la cena' }[p[2]] || p[2] || 'día';
       return f[2] + ' ' + MONTHS_ES[f[1] - 1] + ' · ' + campo;
     }
     if (p[0] === 'suggestions' && p[1] === 'recetas') {
@@ -1922,6 +1931,7 @@ function renderWeek() {
               oninput="saveField('${key}','comidaLink',this.value)" />
             ${dayData.comidaLink ? `<a href="${dayData.comidaLink}" target="_blank">🔗</a>` : '<span style="width:20px"></span>'}
           </div>
+          ${defrostRowHtml(key, dayData, 'comida')}
           <div class="field-label">🌙 Cena</div>
           <div class="autocomplete-wrap">
             <textarea class="text-field" rows="2" placeholder="¿Qué cenas hoy?"
@@ -1937,6 +1947,7 @@ function renderWeek() {
               oninput="saveField('${key}','cenaLink',this.value)" />
             ${dayData.cenaLink ? `<a href="${dayData.cenaLink}" target="_blank">🔗</a>` : '<span style="width:20px"></span>'}
           </div>
+          ${defrostRowHtml(key, dayData, 'cena')}
           <div class="field-label">📝 Notas <span style="text-transform:none;font-weight:400;opacity:0.7">(opcional)</span></div>
           <textarea class="text-field" rows="2" placeholder="Peso, sensaciones, chuches..."
             oninput="saveField('${key}','notas',this.value)">${dayData.notas||''}</textarea>
@@ -2063,6 +2074,45 @@ function toggleDone(key, suffix) {
   });
 }
 
+// ── Descongelar: casilla = todo el plato; si se escribe algo, solo ese ingrediente ──
+function escAttr(s) { return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+
+function defrostRowHtml(key, d, m) {
+  const on = !!d[m + 'Descongelar'];
+  return `<div class="defrost-row${on ? ' on' : ''}" id="defrostrow-${key}-${m}">
+    <label class="defrost-check"><input type="checkbox" id="defrost-${key}-${m}" ${on ? 'checked' : ''} onchange="setDefrost('${key}','${m}',this.checked)"> 🧊 Descongelar</label>
+    <input type="text" class="defrost-que" id="defrostq-${key}-${m}" placeholder="solo un ingrediente (vacío = todo)" value="${escAttr(d[m + 'DescongelarQue'])}" oninput="setDefrostQue('${key}','${m}',this.value)" />
+  </div>`;
+}
+
+function setDefrost(key, m, marcado) {
+  const d = getDayData(key);
+  d[m + 'Descongelar'] = marcado;
+  if (!marcado) {
+    d[m + 'DescongelarQue'] = '';
+    const q = document.getElementById(`defrostq-${key}-${m}`);
+    if (q) q.value = '';
+  }
+  const fila = document.getElementById(`defrostrow-${key}-${m}`);
+  if (fila) fila.classList.toggle('on', marcado);
+  save();
+  updatePreview(key, d);
+}
+
+function setDefrostQue(key, m, texto) {
+  const d = getDayData(key);
+  d[m + 'DescongelarQue'] = texto;
+  if (texto.trim() && !d[m + 'Descongelar']) {
+    d[m + 'Descongelar'] = true;
+    const c = document.getElementById(`defrost-${key}-${m}`);
+    if (c) c.checked = true;
+    const fila = document.getElementById(`defrostrow-${key}-${m}`);
+    if (fila) fila.classList.add('on');
+  }
+  save();
+  updatePreview(key, d);
+}
+
 function updatePreview(key, dayData, suffix) {
   // If suffix given, update only that preview; otherwise update both
   const suffixes = suffix ? [suffix] : ['food','sport'];
@@ -2111,6 +2161,23 @@ function updatePreview(key, dayData, suffix) {
       };
       makeFoodRow('☀️', dayData.comida, dayData.comidaLink);
       makeFoodRow('🌙', dayData.cena, dayData.cenaLink);
+      [['comida', 'comida'], ['cena', 'cena']].forEach(([m, nombre]) => {
+        if (!dayData[m + 'Descongelar']) return;
+        const que = String(dayData[m + 'DescongelarQue'] || '').trim();
+        const pill = document.createElement('div');
+        pill.className = 'preview-pill food';
+        pill.style.cssText = 'background:#e3f2fd;color:#1565c0';
+        const fila = document.createElement('div');
+        fila.className = 'preview-food-row';
+        const l = document.createElement('span');
+        l.className = 'preview-food-label';
+        l.textContent = '🧊';
+        const t = document.createElement('span');
+        t.className = 'preview-food-text';
+        t.textContent = 'Descongelar (' + nombre + '): ' + (que || 'todo el plato');
+        fila.appendChild(l); fila.appendChild(t); pill.appendChild(fila);
+        preview.appendChild(pill);
+      });
       if (dayData.notas) {
         const pill = document.createElement('div');
         pill.className = 'preview-pill food';
@@ -2413,11 +2480,13 @@ function openExport(mode) {
       const receta = getRecipes().find(r => r.name && d.comida.toLowerCase().includes(r.name.toLowerCase().slice(0,20)));
       if (receta?.ingredientes) text += `  Ingredientes: ${receta.ingredientes}\n`;
     }
+    if (d.comidaDescongelar) text += `  🧊 Descongelar el día anterior (comida): ${String(d.comidaDescongelarQue || '').trim() || 'todo el plato'}\n`;
     if (d.cena) {
       text += `• Cena: ${d.cena}${d.cenaLink ? ' ('+d.cenaLink+')' : ''}\n`;
       const receta = getRecipes().find(r => r.name && d.cena.toLowerCase().includes(r.name.toLowerCase().slice(0,20)));
       if (receta?.ingredientes) text += `  Ingredientes: ${receta.ingredientes}\n`;
     }
+    if (d.cenaDescongelar) text += `  🧊 Descongelar el día anterior (cena): ${String(d.cenaDescongelarQue || '').trim() || 'todo el plato'}\n`;
     if (d.notas) text += `• Notas: ${d.notas}\n`;
   });
 
