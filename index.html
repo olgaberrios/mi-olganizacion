@@ -2159,9 +2159,8 @@ function updatePreview(key, dayData, suffix) {
         </div>`;
         preview.appendChild(pill);
       };
-      makeFoodRow('☀️', dayData.comida, dayData.comidaLink);
-      makeFoodRow('🌙', dayData.cena, dayData.cenaLink);
-      [['comida', 'comida'], ['cena', 'cena']].forEach(([m, nombre]) => {
+      // Cada «Descongelar» va justo debajo del plato al que se refiere
+      const defrostPill = (m) => {
         if (!dayData[m + 'Descongelar']) return;
         const que = String(dayData[m + 'DescongelarQue'] || '').trim();
         const pill = document.createElement('div');
@@ -2174,10 +2173,14 @@ function updatePreview(key, dayData, suffix) {
         l.textContent = '🧊';
         const t = document.createElement('span');
         t.className = 'preview-food-text';
-        t.textContent = 'Descongelar (' + nombre + '): ' + (que || 'todo el plato');
+        t.textContent = 'Descongelar: ' + (que || 'todo el plato');
         fila.appendChild(l); fila.appendChild(t); pill.appendChild(fila);
         preview.appendChild(pill);
-      });
+      };
+      makeFoodRow('☀️', dayData.comida, dayData.comidaLink);
+      defrostPill('comida');
+      makeFoodRow('🌙', dayData.cena, dayData.cenaLink);
+      defrostPill('cena');
       if (dayData.notas) {
         const pill = document.createElement('div');
         pill.className = 'preview-pill food';
